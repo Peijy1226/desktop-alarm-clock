@@ -1,0 +1,2953 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>在线闹钟 · 整点报时</title>
+<style>
+:root{
+  /* ===== 暗黑主题 ===== */
+  --bg:#0b0f0a;
+  --bg-2:#11170f;
+  --card:#151a13;
+  --card-2:#1a2017;
+  --card-soft:#12170f;
+  --ink:#e8f0e0;          /* 主文字 */
+  --ink-2:#b4c2a8;        /* 次文字 */
+  --muted:#7a8a6c;        /* 弱文字 */
+  --line:#283021;         /* 边框 */
+  --line-2:#1f2619;       /* 细分隔 */
+  --input:#11160e;        /* 输入框底 */
+  --hover:#1c2318;        /* 悬停底 */
+  --green:#7ed957;
+  --green-2:#8ee06a;      /* 暗色下高亮要更亮 */
+  --green-3:#5fa83f;
+  --green-soft:rgba(126,217,87,.12);
+  --green-glow:rgba(126,217,87,.30);
+  --danger:#f0635f;
+  --danger-soft:rgba(240,99,95,.12);
+  --warn-bg:rgba(240,170,70,.10);
+  --warn-line:rgba(240,170,70,.28);
+  --warn-ink:#e8b168;
+  --shadow-lg:0 30px 70px -30px rgba(0,0,0,.9);
+  --shadow-md:0 16px 40px -22px rgba(0,0,0,.85);
+  --shadow-sm:0 4px 14px -6px rgba(0,0,0,.7);
+  --radius-xl:28px;
+  --radius-lg:20px;
+  --radius-md:14px;
+  --radius-sm:10px;
+  --font:"Microsoft YaHei","PingFang SC","Hiragino Sans GB","Segoe UI",system-ui,sans-serif;
+  --font-num:"Trebuchet MS","Segoe UI",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  font-family:var(--font);
+  color:var(--ink);
+  background:
+    radial-gradient(1200px 620px at 12% -10%, rgba(126,217,87,.07) 0%, rgba(126,217,87,0) 62%),
+    radial-gradient(900px 520px at 92% 2%, rgba(90,180,120,.05) 0%, rgba(90,180,120,0) 60%),
+    linear-gradient(180deg,#0c1109 0%, #0a0e08 52%, #080c07 100%);
+  -webkit-font-smoothing:antialiased;
+  min-height:100%;
+  background-attachment:scroll;
+}
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:radial-gradient(rgba(126,217,87,.05) 1px, transparent 1px);
+  background-size:22px 22px;
+  opacity:.8;
+}
+.app-shell{position:relative;z-index:1;max-width:1080px;margin:0 auto;padding:38px 22px 56px}
+
+/* ============ hero ============ */
+.hero-card{
+  background:linear-gradient(168deg,#171d14 0%,#131812 62%,#11150f 100%);
+  border-radius:var(--radius-xl);
+  box-shadow:var(--shadow-lg);
+  border:1px solid rgba(126,217,87,.09);
+  padding:26px 28px 28px;
+  overflow:hidden;
+  position:relative;
+}
+.hero-card::after{
+  content:"";position:absolute;right:-120px;top:-140px;width:340px;height:340px;border-radius:50%;
+  background:radial-gradient(circle,rgba(126,217,87,.10),rgba(126,217,87,0) 68%);
+  pointer-events:none;
+}
+.brand-block{display:flex;align-items:center;gap:14px;position:relative;z-index:1;min-width:0}
+.brand-copy{min-width:0}
+.brand-logo{
+  width:46px;height:46px;border-radius:14px;flex:none;
+  background:linear-gradient(150deg,#8fdc6f,#4f9e35);
+  display:grid;place-items:center;
+  box-shadow:0 10px 20px -10px var(--green-glow), inset 0 1px 0 rgba(255,255,255,.5);
+}
+.brand-logo svg{width:26px;height:26px;display:block}
+.brand-title{margin:0;font-size:17px;font-weight:700;letter-spacing:.2px;color:var(--ink)}
+.brand-sub{margin:3px 0 0;font-size:12.5px;color:var(--muted);line-height:1.5;overflow-wrap:anywhere}
+
+.clock-panel{
+  margin-top:24px;
+  display:grid;
+  grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);
+  gap:20px;
+  align-items:stretch;
+}
+.clock-panel > div{min-width:0}
+.clock-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px}
+.time-mode-switch{
+  display:inline-flex;background:rgba(0,0,0,.28);border-radius:999px;padding:4px;
+  border:1px solid var(--line);
+}
+.time-mode-option{position:relative;cursor:pointer;display:block}
+.time-mode-option input{position:absolute;opacity:0;width:0;height:0}
+.time-mode-option span{
+  display:block;padding:7px 16px;font-size:13px;color:var(--ink-2);border-radius:999px;
+  transition:.18s ease;font-weight:500;white-space:nowrap;
+}
+.time-mode-option input:checked + span{
+  background:var(--card-2);color:var(--green-2);font-weight:700;box-shadow:var(--shadow-sm);
+}
+.choice-item{display:inline-flex;align-items:center;gap:9px;cursor:pointer;font-size:13px;color:var(--ink-2);user-select:none}
+.choice-item input{position:absolute;opacity:0;width:0;height:0}
+.switch-ui{
+  width:42px;height:24px;border-radius:999px;background:#2c3626;position:relative;
+  transition:.2s ease;flex:none;box-shadow:inset 0 1px 3px rgba(0,0,0,.08);
+}
+.switch-ui::after{
+  content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;
+  background:#c8d6bb;box-shadow:0 2px 6px rgba(0,0,0,.5);transition:.2s cubic-bezier(.3,.9,.4,1.2);
+}
+.choice-item input:checked + span + .switch-ui,
+.alarm-inline-toggle input:checked + .switch-ui,
+.switch-ui[data-on="1"]{background:linear-gradient(180deg,#8ad968,#5fb03e)}
+.choice-item input:checked + span + .switch-ui::after,
+.alarm-inline-toggle input:checked + .switch-ui::after,
+.switch-ui[data-on="1"]::after{transform:translateX(18px)}
+
+.clock-time{
+  margin:18px 0 2px;
+  font-size:var(--clock-fs, 86px);
+  line-height:1;
+  font-variant-numeric:tabular-nums;
+  font-feature-settings:"tnum" 1;
+  background:linear-gradient(180deg,#eaf5df 0%,#a8d88c 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.clock-time .unit{display:inline-block;min-width:2ch;text-align:center}
+.clock-time .sep{
+  -webkit-text-fill-color:#5f7a52;color:#5f7a52;
+  opacity:.85;
+}
+.clock-time .sep.dim{opacity:.32}
+
+/* SVG 字型（七段数码管 / 点阵屏）：必须显式给 fill，
+   否则继承 .clock-time 的 color:transparent 会整个变透明看不见。
+   高度用 .72 倍字号，跟文本字型的数字视觉高度对齐。 */
+/* SVG 字型尺寸：.72em 正好对应文本数字的视觉高度（cap height） */
+.digits{
+  display:block;width:auto;
+  height:.72em;
+  fill:#b7e596;
+}
+.clock-time .digits{margin:0 auto}
+.night-clock .digits{fill:#b23b3b;margin:0 auto;height:.82em}
+.night-mode.dim .night-clock .digits{fill:#4a1616}
+.night-mode.empty .night-clock .digits{fill:#3a2626}
+.alarm-clock .digits{fill:#e4f0d8;margin:0}
+.alarm-item.is-off .alarm-clock .digits{fill:#788a6a}
+.ring-time .digits{fill:#ffffff;margin:0 auto}
+.clock-date{margin:8px 0 0;font-size:13.5px;color:#8a9c7c;letter-spacing:.4px}
+
+.clock-next{min-width:0;
+  background:linear-gradient(165deg,rgba(126,217,87,.09) 0%,rgba(126,217,87,.035) 100%);
+  border:1px solid rgba(126,217,87,.16);
+  border-radius:var(--radius-lg);
+  padding:18px 20px;
+  display:flex;flex-direction:column;justify-content:center;gap:6px;
+  position:relative;overflow:hidden;
+}
+.clock-label{margin:0;font-size:11px;letter-spacing:1.6px;text-transform:uppercase;color:#7fa268;font-weight:700}
+.next-title{margin:0;font-size:19px;font-weight:700;color:#dff0d0;line-height:1.35;overflow-wrap:anywhere}
+.next-countdown-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:2px}
+.next-countdown{margin:0;font-size:13px;color:#9ab088;font-variant-numeric:tabular-nums}
+.next-countdown b{color:var(--green-2);font-weight:700}
+
+/* audio banner */
+.audio-permission-copy{min-width:0}
+.audio-permission-banner{
+  display:flex;align-items:center;gap:10px;justify-content:space-between;
+  background:var(--warn-bg);border:1px solid var(--warn-line);border-radius:var(--radius-md);
+  padding:11px 13px;margin-bottom:10px;
+}
+.audio-permission-banner.success{background:rgba(126,217,87,.10);border-color:rgba(126,217,87,.28)}
+.audio-permission-banner > .primary-btn{flex:none}
+.audio-permission-title{margin:0 0 2px;font-size:12.5px;font-weight:700;color:var(--warn-ink)}
+.audio-permission-banner.success .audio-permission-title{color:#8ee06a}
+.audio-permission-text{margin:0;font-size:11.5px;color:#b39262;line-height:1.45}
+.audio-permission-banner.success .audio-permission-text{color:#7fa268}
+
+/* ============ workspace ============ */
+.workspace{margin-top:20px}
+.panel{
+  background:linear-gradient(168deg,#161c13 0%,#131812 70%,#11150f 100%);
+  border-radius:var(--radius-xl);border:1px solid rgba(126,217,87,.08);
+  box-shadow:var(--shadow-md);padding:20px 22px 14px;
+}
+.panel-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;min-width:0;padding-bottom:14px;border-bottom:1px solid var(--line-2)}
+.panel-title-inline{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.panel-title-inline h2{margin:0;font-size:19px;font-weight:700}
+.list-meta{margin:0;font-size:12px;color:var(--muted)}
+.alarm-list{display:flex;flex-direction:column}
+.alarm-item{
+  display:flex;align-items:center;justify-content:space-between;gap:14px;
+  padding:16px 4px;border-bottom:1px solid rgba(126,217,87,.055);
+  transition:background .18s ease,border-radius .18s ease;
+}
+.alarm-item:last-child{border-bottom:none}
+.alarm-item:hover{background:var(--hover)}
+.alarm-item.is-off .alarm-clock,.alarm-item.is-off .alarm-name{color:#788a6a}
+.alarm-main{display:flex;align-items:center;gap:16px;min-width:0;flex:1 1 auto}
+.alarm-inline-toggle{cursor:pointer;display:flex}
+.alarm-inline-toggle input{position:absolute;opacity:0;width:0;height:0}
+.alarm-clock{
+  margin:0;font-family:var(--font-num);font-size:31px;font-weight:700;letter-spacing:-.01em;
+  color:#e4f0d8;font-variant-numeric:tabular-nums;min-width:104px;
+}
+.alarm-copy{min-width:0;display:flex;flex-direction:column;gap:2px}
+.alarm-name{margin:0;font-size:14px;font-weight:600;color:#d6e6c8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.alarm-tone{margin:0;font-size:11.5px;color:var(--muted)}
+.alarm-status{margin:0;font-size:11.5px;color:var(--green-2);font-weight:600}
+.alarm-item.is-off .alarm-status{color:#5e6d52;font-weight:500}
+.alarm-actions{display:flex;gap:8px;flex:none}
+.empty-state{padding:26px 0 22px;text-align:center;color:var(--muted);font-size:13px;line-height:1.9}
+.empty-state p{margin:0}
+.empty-state .empty-art{width:56px;height:56px;display:block;margin:0 auto 10px;opacity:.85}
+.list-footer-actions{padding:10px 0 6px;display:flex;justify-content:flex-end;border-top:1px solid var(--line-2)}
+
+/* buttons */
+button{font-family:inherit;white-space:nowrap}
+.primary-btn{
+  appearance:none;border:none;cursor:pointer;
+  background:linear-gradient(180deg,#84d364,#54a637);
+  color:#fff;font-size:13px;font-weight:700;letter-spacing:.2px;
+  padding:11px 20px;border-radius:999px;
+  box-shadow:0 10px 20px -10px rgba(84,166,55,.85), inset 0 1px 0 rgba(255,255,255,.32);
+  transition:transform .14s ease,box-shadow .18s ease,filter .18s ease;
+}
+.primary-btn:hover{filter:brightness(1.04);transform:translateY(-1px)}
+.primary-btn:active{transform:translateY(0) scale(.985)}
+.secondary-btn{
+  appearance:none;cursor:pointer;background:var(--card-2);color:var(--ink-2);
+  border:1px solid rgba(126,217,87,.20);font-size:12.5px;font-weight:600;
+  padding:9px 16px;border-radius:999px;transition:.16s ease;
+}
+.secondary-btn:hover{border-color:rgba(126,217,87,.4);background:var(--hover);color:var(--green-2)}
+.ghost-btn{
+  appearance:none;cursor:pointer;background:transparent;color:var(--muted);
+  border:1px solid transparent;font-size:12.5px;font-weight:600;padding:9px 14px;border-radius:999px;transition:.16s ease;
+}
+.ghost-btn:hover{background:var(--danger-soft);color:var(--danger)}
+.mini-action-btn{padding:5px 11px;font-size:11.5px}
+.hidden{display:none !important}
+
+/* ============ dialog ============ */
+.alarm-dialog,.confirm-dialog{
+  position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:18px;
+  background:rgba(4,7,3,.72);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  animation:fadeIn .16s ease;
+}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.alarm-dialog-card{max-height:92vh;overflow-y:auto;scrollbar-width:none;}
+.alarm-dialog-card::-webkit-scrollbar{width:0;display:none}
+.alarm-dialog-card{
+  width:min(560px,100%);max-height:92vh;overflow:auto;background:var(--card);
+  border:1px solid rgba(126,217,87,.10);
+  border-radius:24px;padding:24px 26px 22px;box-shadow:0 50px 100px -30px rgba(0,0,0,.95);
+  animation:popIn .22s cubic-bezier(.2,.9,.3,1.15);
+}
+@keyframes popIn{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
+.alarm-dialog-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px}
+.alarm-dialog-head h2{margin:0;font-size:19px;color:var(--ink)}
+.alarm-form{display:flex;flex-direction:column;gap:14px}
+.alarm-form > label{display:flex;flex-direction:column;gap:7px}
+.alarm-form span.lbl,.alarm-form > label > span{font-size:12px;font-weight:700;color:#93a684;letter-spacing:.3px}
+input[type=text],input[type=time],input[type=date],select{
+  font-family:inherit;font-size:13.5px;color:var(--ink);
+  background:var(--input);border:1px solid var(--line);border-radius:var(--radius-sm);
+  padding:11px 13px;width:100%;outline:none;transition:.16s ease;
+}
+input[type=text]:focus,input[type=time]:focus,input[type=date]:focus,select:focus{
+  border-color:rgba(126,217,87,.45);background:var(--input);box-shadow:0 0 0 4px rgba(126,217,87,.10);
+}
+input[type=time]{font-family:var(--font-num);font-size:20px;font-weight:700;letter-spacing:.04em;padding:9px 13px}
+select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237a8a6c' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 13px center;background-size:11px;padding-right:34px;cursor:pointer}
+.time-quick-row{display:flex;flex-direction:column;gap:9px}
+.time-field{display:flex;flex-direction:column;gap:7px}
+.quick-adjust{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.quick-adjust-label{font-size:11.5px;color:var(--muted)}
+.quick-adjust-actions{display:flex;flex-wrap:wrap;gap:6px}
+.quick-adjust-btn{
+  cursor:pointer;border:1px solid var(--line);background:var(--card-2);color:var(--ink-2);
+  font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;
+  padding:6px 11px;border-radius:8px;transition:.14s ease;min-width:42px;
+}
+.quick-adjust-btn:hover{border-color:rgba(126,217,87,.4);color:var(--green-2);background:var(--hover)}
+.inline-field{display:flex;gap:8px;align-items:center}
+.inline-field select{flex:1;min-width:0}
+.repeat-days{display:flex;gap:6px;flex-wrap:wrap}
+.repeat-day-btn{
+  cursor:pointer;width:38px;height:38px;border-radius:50%;border:1px solid var(--line);
+  background:var(--card-2);color:var(--ink-2);font-size:13px;font-weight:700;transition:.14s ease;
+}
+.repeat-day-btn:hover{border-color:rgba(126,217,87,.4)}
+.repeat-day-btn.is-active{background:linear-gradient(180deg,#84d364,#54a637);border-color:transparent;color:#fff;box-shadow:0 8px 16px -9px rgba(84,166,55,.9)}
+.alarm-form-actions{display:flex;gap:10px;justify-content:flex-end;padding-top:4px}
+
+/* confirm dialogs (small) */
+.confirm-dialog-card{
+  width:min(420px,100%);background:var(--card);border:1px solid rgba(126,217,87,.10);
+  border-radius:22px;padding:24px 24px 20px;
+  box-shadow:0 50px 100px -30px rgba(0,0,0,.95);animation:popIn .2s cubic-bezier(.2,.9,.3,1.15);
+}
+.confirm-dialog-card h2{margin:0 0 8px;font-size:18px;color:var(--ink)}
+.confirm-dialog-copy{margin:0 0 18px;font-size:13px;color:var(--ink-2);line-height:1.65}
+.confirm-dialog-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.ring-kicker{margin:0 0 6px;font-size:10.5px;letter-spacing:2px;text-transform:uppercase;color:#a9b59c;font-weight:700}
+
+/* hourly chime dialog */
+.hourly-chime-form{display:flex;flex-direction:column;gap:16px;margin-bottom:18px}
+.hourly-chime-volume-field{display:flex;flex-direction:column;gap:8px}
+.hourly-chime-volume-field > span{font-size:12px;font-weight:700;color:#93a684}
+.hourly-chime-volume-row{display:flex;align-items:center;gap:12px}
+.hourly-chime-volume-row input[type=range]{flex:1;accent-color:var(--green);height:4px}
+.hourly-chime-volume-row strong{font-size:13px;color:var(--green-2);min-width:42px;text-align:right;font-variant-numeric:tabular-nums}
+.hourly-chime-hours-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}
+.hourly-chime-hours-head > span{font-size:12px;font-weight:700;color:#93a684}
+.hourly-chime-hours-actions{display:flex;gap:4px}
+.hourly-chime-hours{display:grid;grid-template-columns:repeat(8,1fr);gap:6px}
+.hour-cell{
+  cursor:pointer;border:1px solid var(--line);background:var(--card-2);color:var(--ink-2);
+  font-size:12px;font-weight:700;padding:8px 0;border-radius:8px;transition:.14s ease;
+  font-variant-numeric:tabular-nums;
+}
+.hour-cell:hover{border-color:rgba(126,217,87,.4)}
+.hour-cell.is-active{background:linear-gradient(180deg,#84d364,#54a637);border-color:transparent;color:#fff}
+
+/* ring overlay */
+.ring-overlay{
+  position:fixed;inset:0;z-index:400;display:grid;place-items:center;padding:20px;
+  background:radial-gradient(circle at 50% 36%, rgba(40,72,26,.94), rgba(10,16,7,.98));
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  animation:fadeIn .2s ease;
+}
+.ring-card{
+  position:relative;width:min(460px,100%);text-align:center;color:#f4fbea;
+  padding:34px 26px 28px;border-radius:26px;
+  background:linear-gradient(165deg, rgba(46,68,32,.96) 0%, rgba(28,42,19,.97) 100%);
+  border:1px solid rgba(180,225,150,.28);
+  box-shadow:0 40px 90px -30px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.09);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+}
+.ring-card::before,.ring-card::after{
+  content:"";position:absolute;left:50%;top:50%;width:200px;height:200px;margin:-100px 0 0 -100px;
+  border-radius:50%;border:1px solid rgba(174,240,140,.35);pointer-events:none;
+  animation:pulseRing 2.4s ease-out infinite;
+}
+.ring-card::after{animation-delay:1.2s}
+@keyframes pulseRing{0%{transform:scale(.9);opacity:.75}100%{transform:scale(2.4);opacity:0}}
+.ring-overlay .ring-kicker{color:#a9d98d;position:relative}
+.ring-overlay h2{margin:2px 0 6px;font-size:20px;font-weight:700;position:relative}
+.ring-time{
+  margin:6px 0 4px;
+  font-size:calc(var(--clock-fs, 86px) * .74);
+  line-height:1;
+  font-variant-numeric:tabular-nums;color:#fff;position:relative;
+}
+.ring-desc{margin:0 0 22px;font-size:13.5px;color:#d9eec6;position:relative}
+.ring-actions{display:flex;gap:10px;justify-content:center;position:relative;flex-wrap:wrap}
+.ring-actions .secondary-btn{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.45);color:#ffffff;font-weight:700}
+.ring-actions .secondary-btn:hover{background:rgba(255,255,255,.22);color:#fff}
+.ring-actions .primary-btn{box-shadow:0 14px 30px -12px rgba(0,0,0,.6)}
+
+/* toast */
+.site-notice{
+  position:fixed;left:50%;bottom:32px;transform:translateX(-50%);z-index:100;
+  background:rgba(30,40,24,.97);border:1px solid rgba(126,217,87,.22);
+  color:#dff0d0;font-size:12.5px;line-height:1.5;
+  padding:11px 18px;border-radius:999px;box-shadow:0 18px 40px -18px rgba(0,0,0,.6);
+  max-width:90vw;animation:toastIn .2s ease;
+}
+@keyframes toastIn{from{opacity:0;transform:translate(-50%,10px)}to{opacity:1;transform:translate(-50%,0)}}
+
+/* footer */
+.site-footer{max-width:1080px;margin:22px auto 0;padding:0 22px}
+.section-kicker{margin:0 0 4px;font-size:10.5px;letter-spacing:1.8px;text-transform:uppercase;color:#5e7250;font-weight:700}
+.footer-copy{margin:14px 0 0;font-size:11.5px;color:#5e6d52;text-align:center}
+
+/* responsive */
+@media (max-width:1080px){
+  .app-shell{padding:30px 18px 46px}
+  .hero-card{padding:22px 22px 24px;border-radius:24px}
+  .panel{padding:18px 18px 12px}
+  .clock-panel{gap:16px}
+  .clock-toolbar{gap:9px 10px}
+  .time-mode-option span{padding:7px 13px;font-size:12.5px}
+  .choice-item{font-size:12.5px;gap:8px}
+  .night-btn{padding:8px 13px;font-size:12px}
+  .style-select{min-width:104px;max-width:132px;font-size:11.5px}
+}
+
+@media (max-width:820px){
+  .clock-panel{grid-template-columns:1fr}
+  .clock-time{font-size:calc(var(--clock-fs) * .84)}
+  .alarm-clock{font-size:26px;min-width:88px}
+  .app-shell{padding:22px 14px 40px}
+  .hero-card{padding:20px 18px 22px;border-radius:22px}
+  .panel{padding:16px 16px 10px;border-radius:22px}
+  .alarm-item{flex-wrap:wrap}
+  .alarm-actions{width:100%;justify-content:flex-end}
+  .hourly-chime-hours{grid-template-columns:repeat(6,1fr)}
+}
+
+/* ================= 黑屏倒计时模式 ================= */
+.night-btn{
+  appearance:none;cursor:pointer;border:1px solid rgba(126,217,87,.24);
+  background:linear-gradient(180deg,rgba(126,217,87,.12),rgba(126,217,87,.05));color:#a6e088;
+  font-size:12.5px;font-weight:600;padding:9px 15px;border-radius:999px;
+  display:inline-flex;align-items:center;gap:6px;transition:.16s ease;
+  white-space:nowrap;
+}
+.night-btn:hover{border-color:rgba(126,217,87,.46);color:#c4f0a8;box-shadow:0 0 0 3px rgba(126,217,87,.10)}
+.night-btn svg{width:13px;height:13px;flex:none}
+
+/* 覆盖标题栏(200)、响铃层(80)保持在它之上 */
+.night-mode{
+  position:fixed;inset:0;z-index:300;background:#000;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  opacity:0;transition:opacity .45s ease;
+}
+.night-mode.show{opacity:1}
+
+/* 黑屏时锁死滚动，避免出现滚动条 */
+body.night-active{overflow:hidden !important;height:100vh}
+body.night-active::-webkit-scrollbar{display:none}
+
+.night-wrap{display:flex;flex-direction:column;align-items:center;text-align:center;padding:0 5vw;max-width:100%;min-width:0}
+.night-clock{max-width:96vw;overflow:hidden}
+
+.night-label{
+  font-size:11.5px;letter-spacing:3.4px;text-transform:uppercase;
+  color:#8a3a3a;font-weight:700;margin:0 0 30px;
+  transition:color 1s ease;
+}
+.night-clock{
+  line-height:.92;
+  font-size:var(--night-fs, calc(var(--clock-fs, 86px) * 4.2));
+  font-variant-numeric:tabular-nums;
+  color:#b23b3b;
+  transition:color 1.2s ease;
+  text-shadow:0 0 70px rgba(178,59,59,.16);
+}
+.night-clock .colon{
+  color:#7a2828;animation:nightBlink 2s steps(1,end) infinite;
+}
+@keyframes nightBlink{50%{opacity:.3}}
+
+.night-sub{
+  display:none;   /* 底部不再显示闹钟名，只留 Esc 提示 */
+  margin:34px 0 0;font-size:clamp(14px,1.7vw,20px);font-weight:600;
+  color:#b04d4d;letter-spacing:.6px;transition:color 1s ease;
+  max-width:82vw;overflow-wrap:anywhere;
+}
+.night-target{
+  display:none;   /* 同上 */
+  margin:10px 0 0;font-size:13px;color:#8a4242;letter-spacing:.4px;
+  transition:color 1s ease;
+}
+.night-foot{
+  position:absolute;bottom:26px;left:0;right:0;text-align:center;
+  font-size:11.5px;color:#6b3636;letter-spacing:.6px;transition:color 1s ease;
+}
+.night-exit{
+  position:absolute;top:20px;right:22px;
+  appearance:none;border:1px solid #3a2020;background:transparent;color:#7a3838;
+  font-size:11.5px;padding:7px 14px;border-radius:999px;cursor:pointer;
+  transition:.2s ease;font-family:inherit;
+}
+.night-exit:hover{border-color:#6a3030;color:#c05050;background:rgba(180,60,60,.07)}
+.night-exit,.night-foot{transition:opacity .5s ease,color 1s ease,border-color .5s ease}
+.night-mode.idle .night-exit{opacity:0;pointer-events:none}
+.night-mode.idle .night-foot{opacity:0}
+
+/* 调暗态：数字压到刚好能看清，不照亮房间 */
+.night-mode.dim .night-clock{color:#4a1616;text-shadow:none}
+.night-mode.dim .night-clock .colon{color:#2e0e0e}
+.night-mode.dim .night-label{color:#2a1010}
+.night-mode.dim .night-sub{color:#3e1a1a}
+.night-mode.dim .night-target{color:#2a1212}
+.night-mode.dim .night-foot{color:#220e0e}
+.night-mode.dim .night-exit{color:#3e1a1a;border-color:#241010}
+
+/* 无闹钟时的空状态 */
+.night-mode.empty .night-clock{color:#3a2626;font-size:calc(var(--clock-fs, 86px) * .9);text-shadow:none;letter-spacing:.06em}
+.night-mode.empty .night-sub{color:#4a3232}
+
+@media (max-width:1080px){
+  .app-shell{padding:30px 18px 46px}
+  .hero-card{padding:22px 22px 24px;border-radius:24px}
+  .panel{padding:18px 18px 12px}
+  .clock-panel{gap:16px}
+  .clock-toolbar{gap:9px 10px}
+  .time-mode-option span{padding:7px 13px;font-size:12.5px}
+  .choice-item{font-size:12.5px;gap:8px}
+  .night-btn{padding:8px 13px;font-size:12px}
+  .style-select{min-width:104px;max-width:132px;font-size:11.5px}
+}
+
+@media (max-width:820px){
+  .night-clock{font-size:var(--night-fs, calc(var(--clock-fs) * 3.2))}
+  .ring-time{font-size:calc(var(--clock-fs) * .62)}
+  .night-label{margin-bottom:18px}
+  .night-sub{margin-top:20px}
+}
+
+/* ================= 数字字型系统 ================= */
+body{
+  --clock-font: var(--font-num);
+  --clock-weight: 700;
+  --clock-track: -.02em;
+  --clock-glow: none;
+  --clock-stretch: normal;
+}
+.clock-time,.alarm-clock,.ring-time,.night-clock,.next-countdown b{
+  font-family:var(--clock-font);
+  font-weight:var(--clock-weight);
+  letter-spacing:var(--clock-track);
+  text-shadow:var(--clock-glow);
+  font-stretch:var(--clock-stretch);
+}
+
+/* 1 现代无衬线（默认） */
+
+/* 2 科幻 HUD：DIN 工业体 + 宽间距 + 微光 */
+
+/* 3 终端等宽 */
+
+/* 4 极简细体 */
+
+/* 5 古典衬线 */
+
+/* 6 手写艺术 */
+
+/* 7 冲击粗黑 */
+
+/* 8 / 9：SVG 绘制，不依赖字体 */
+
+
+/* 字型选择器（主界面） */
+.style-select{
+  appearance:none;cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:600;
+  width:auto;min-width:112px;max-width:150px;
+  color:var(--ink-2);background:var(--card-2);border:1px solid var(--line);
+  border-radius:999px;padding:8px 30px 8px 14px;transition:.16s ease;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238a9681' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 11px center;background-size:10px;
+}
+select.style-select{width:auto}
+.style-select:hover{border-color:rgba(126,217,87,.4);color:var(--green-2)}
+.style-select:focus{outline:none;border-color:rgba(126,217,87,.45);box-shadow:0 0 0 3px rgba(126,217,87,.12)}
+
+/* 黑屏模式里的字型面板 */
+.night-style-btn{
+  position:absolute;top:20px;left:22px;
+  appearance:none;border:1px solid #3a2020;background:transparent;color:#7a3838;
+  font-size:11.5px;padding:7px 14px;border-radius:999px;cursor:pointer;
+  transition:opacity .5s ease,color .5s ease,border-color .5s ease;font-family:inherit;
+}
+.night-style-btn:hover{border-color:#6a3030;color:#c05050}
+.night-mode.idle .night-style-btn{opacity:0;pointer-events:none}
+
+.night-style-panel{max-height:70vh;overflow-y:auto;scrollbar-width:none}
+.night-style-panel::-webkit-scrollbar{width:0;display:none}
+.night-style-panel{
+  position:absolute;top:64px;left:22px;z-index:5;
+  background:rgba(20,8,8,.96);border:1px solid #4a2222;border-radius:16px;
+  padding:12px;display:grid;grid-template-columns:repeat(3,1fr);gap:7px;
+  box-shadow:0 24px 60px -20px rgba(0,0,0,.9);
+  animation:panelIn .18s ease;
+}
+@keyframes panelIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.night-style-chip{
+  appearance:none;cursor:pointer;border:1px solid #3a1e1e;background:transparent;
+  color:#a05a5a;font-size:11.5px;padding:8px 10px;border-radius:9px;font-family:inherit;
+  white-space:nowrap;transition:.14s ease;
+}
+.night-style-chip:hover{border-color:#6a3030;color:#d07878}
+.night-style-chip.on{background:#5c2222;border-color:#8a3838;color:#f0b0b0}
+
+/* ================= 隐藏滚动条（仍可滚动） ================= */
+html{scrollbar-width:none;-ms-overflow-style:none;overflow-x:hidden}
+body{overflow-x:hidden}
+html::-webkit-scrollbar,body::-webkit-scrollbar{width:0;height:0;display:none}
+*::-webkit-scrollbar{width:0;height:0}
+*::-webkit-scrollbar-track{background:transparent}
+*::-webkit-scrollbar-thumb{background:transparent}
+</style>
+</head>
+<body>
+<main class="app-shell">
+
+  <section class="hero-card">
+    <div class="brand-block">
+      <div class="brand-logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="13" r="8"/><path d="M12 9.6V13l2.4 1.6"/><path d="M5 4.5 7.2 6.6M19 4.5 16.8 6.6"/><path d="M4 20.5h4M16 20.5h4"/>
+        </svg>
+      </div>
+      <div>
+        <h1 class="brand-title">在线闹钟</h1>
+        <p class="brand-sub">支持多个闹钟、贪睡提醒、整点报时、倒计时与北京时间切换</p>
+      </div>
+    </div>
+
+    <div class="clock-panel">
+      <div>
+        <div class="clock-toolbar">
+          <div class="time-mode-switch" role="radiogroup" aria-label="时间模式">
+            <label class="time-mode-option">
+              <input type="radio" name="timeMode" value="beijing" id="timeModeBeijing">
+              <span>北京时间</span>
+            </label>
+            <label class="time-mode-option">
+              <input type="radio" name="timeMode" value="device" id="timeModeDevice" checked>
+              <span>设备时间</span>
+            </label>
+          </div>
+          <label class="choice-item">
+            <input type="checkbox" id="hourlyChimeToggle">
+            <span>整点报时</span>
+            <span class="switch-ui" aria-hidden="true"></span>
+          </label>
+          <select class="style-select" id="clockStyleSelect" title="数字字型" aria-label="数字字型"></select>
+          <button type="button" class="night-btn" id="nightModeButton" title="黑屏只显示倒计时，适合睡前放床头">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12.8A8.5 8.5 0 1111.2 3a6.8 6.8 0 009.8 9.8z"/>
+            </svg>
+            黑屏倒计时
+          </button>
+        </div>
+        <p class="clock-time" id="currentTime">--<span class="sep">:</span>--<span class="sep">:</span>--</p>
+        <p class="clock-date" id="currentDate">----</p>
+      </div>
+
+      <div class="clock-next">
+        <div class="audio-permission-banner hidden" id="startupOverlay" aria-live="polite">
+          <div class="audio-permission-copy">
+            <p class="audio-permission-title">授权浏览器播放音频</p>
+            <p class="audio-permission-text">点击下方按钮或页面任意位置，即可允许播放闹钟与报时音频。</p>
+          </div>
+          <button type="button" class="primary-btn" id="activateAlarmButton" style="padding:9px 16px;font-size:12.5px">点击授权</button>
+        </div>
+        <div class="audio-permission-banner success hidden" id="audioPermissionSuccess" aria-live="polite">
+          <div class="audio-permission-copy">
+            <p class="audio-permission-title">授权成功</p>
+            <p class="audio-permission-text">浏览器已允许当前页面播放闹钟和整点报时音频。</p>
+          </div>
+        </div>
+        <div id="nextAlarmPanelContent">
+          <p class="clock-label">下一个闹钟</p>
+          <p class="next-title" id="nextAlarmText">暂无已启用闹钟</p>
+          <div class="next-countdown-row">
+            <p class="next-countdown" id="countdownText">添加一个闹钟开始使用</p>
+            <button type="button" class="secondary-btn next-snooze-stop hidden" id="stopSnoozeButton" style="padding:5px 12px;font-size:11.5px">停止贪睡</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="workspace">
+    <div class="panel list-panel">
+      <div class="panel-head">
+        <div class="panel-title-row">
+          <p class="section-kicker">Alarm List</p>
+          <div class="panel-title-inline">
+            <h2>我的闹钟</h2>
+            <p class="list-meta" id="alarmCount">0 个闹钟</p>
+          </div>
+        </div>
+        <div class="panel-head-actions">
+          <button type="button" class="primary-btn panel-add-btn" id="openAddDialogButton">添加闹钟</button>
+        </div>
+      </div>
+
+      <div class="alarm-list" id="alarmList">
+        <div class="empty-state">
+          <svg class="empty-art" viewBox="0 0 64 64" fill="none" stroke="#38452e" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="32" cy="35" r="17"/>
+            <path d="M32 26v9l6 4"/>
+            <path d="M12 12l6 6M52 12l-6 6"/>
+            <path d="M20 52l-3 6M44 52l3 6"/>
+          </svg>
+          <p>还没有闹钟。</p>
+          <p>先添加一个闹钟试试。</p>
+        </div>
+      </div>
+      <div class="list-footer-actions">
+        <button type="button" class="ghost-btn hidden" id="clearDisabledAlarmsButton">清空未启用闹钟</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <p class="footer-copy">全部闹钟数据仅保存在本机，不上传服务器。</p>
+</footer>
+
+<!-- ============ 添加/编辑闹钟 ============ -->
+<div class="alarm-dialog hidden" id="alarmDialog" aria-modal="true" role="dialog" aria-labelledby="alarmDialogTitle">
+  <div class="alarm-dialog-card">
+    <div class="alarm-dialog-head">
+      <div>
+        <p class="section-kicker">Alarm Editor</p>
+        <h2 id="alarmDialogTitle">添加闹钟</h2>
+      </div>
+    </div>
+
+    <form id="alarmForm" class="alarm-form">
+      <div class="time-quick-row">
+        <label class="time-field">
+          <span>时间</span>
+          <input type="time" id="alarmTime" step="1" required>
+        </label>
+        <div class="quick-adjust" aria-label="快速设置时间">
+          <span class="quick-adjust-label">快速设置：</span>
+          <div class="quick-adjust-actions">
+            <button type="button" class="quick-adjust-btn" data-offset-minutes="1">+1</button>
+            <button type="button" class="quick-adjust-btn" data-offset-minutes="5">+5</button>
+            <button type="button" class="quick-adjust-btn" data-offset-minutes="30">+30</button>
+            <button type="button" class="quick-adjust-btn" data-offset-minutes="-1">-1</button>
+            <button type="button" class="quick-adjust-btn" data-offset-minutes="-5">-5</button>
+            <button type="button" class="quick-adjust-btn" data-offset-minutes="-30">-30</button>
+          </div>
+        </div>
+      </div>
+
+      <label>
+        <span>标签</span>
+        <input type="text" id="alarmLabel" maxlength="24" placeholder="例如：起床、开会、喝水">
+      </label>
+
+      <label>
+        <span>重复日期</span>
+        <select id="repeatModeSelect">
+          <option value="once">单次</option>
+          <option value="daily">每天</option>
+          <option value="specific_date">指定日期</option>
+          <option value="weekdays">工作日</option>
+          <option value="holidays">节假日</option>
+          <option value="custom">自定义星期</option>
+        </select>
+      </label>
+
+      <label id="specificDateGroup" class="hidden">
+        <span>指定日期</span>
+        <input type="date" id="specificDateInput">
+      </label>
+
+      <div class="repeat-days hidden" id="repeatDaysGroup" aria-label="自定义重复星期">
+        <button type="button" class="repeat-day-btn" data-day="1">一</button>
+        <button type="button" class="repeat-day-btn" data-day="2">二</button>
+        <button type="button" class="repeat-day-btn" data-day="3">三</button>
+        <button type="button" class="repeat-day-btn" data-day="4">四</button>
+        <button type="button" class="repeat-day-btn" data-day="5">五</button>
+        <button type="button" class="repeat-day-btn" data-day="6">六</button>
+        <button type="button" class="repeat-day-btn" data-day="0">日</button>
+      </div>
+
+      <label>
+        <span>铃声</span>
+        <div class="inline-field">
+          <select id="ringtoneSelect"></select>
+          <button type="button" class="secondary-btn" id="previewRingtoneButton">试听</button>
+          <button type="button" class="ghost-btn hidden" id="stopPreviewButton">停止</button>
+        </div>
+      </label>
+      <input type="file" id="customRingtoneInput" accept="audio/*" class="hidden">
+
+      <label>
+        <span>响铃时长</span>
+        <select id="ringDurationSelect">
+          <option value="0">一直</option>
+          <option value="10">10秒</option>
+          <option value="30">30秒</option>
+          <option value="60">1分钟</option>
+          <option value="300">5分钟</option>
+          <option value="600">10分钟</option>
+        </select>
+      </label>
+
+      <div class="alarm-form-actions">
+        <button type="submit" class="primary-btn" id="submitAlarmButton">添加闹钟</button>
+        <button type="button" class="secondary-btn" id="cancelEditButton">退出</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+<!-- ============ 黑屏倒计时 ============ -->
+<div class="night-mode hidden" id="nightMode" aria-live="off">
+  <button type="button" class="night-style-btn" id="nightStyleButton">字型</button>
+  <div class="night-style-panel hidden" id="nightStylePanel"></div>
+  <button type="button" class="night-exit" id="nightExitButton">退出 (Esc)</button>
+  <div class="night-wrap">
+    <p class="night-label" id="nightLabel">Next Alarm</p>
+    <p class="night-clock" id="nightClock">--:--:--</p>
+    <p class="night-sub" id="nightSub">暂无已启用闹钟</p>
+    <p class="night-target" id="nightTarget"></p>
+  </div>
+  <p class="night-foot" id="nightFoot">按 Esc 退出</p>
+</div>
+
+<!-- ============ 响铃 ============ -->
+<div class="ring-overlay hidden" id="ringOverlay" aria-live="assertive" aria-modal="true" role="dialog">
+  <div class="ring-card">
+    <p class="ring-kicker">Alarm Ringing</p>
+    <h2 id="ringTitle">时间到了</h2>
+    <p class="ring-time" id="ringTime">--:--</p>
+    <p class="ring-desc" id="ringDescription">请处理当前提醒。</p>
+    <div class="ring-actions">
+      <button type="button" class="secondary-btn" id="snoozeButton">贪睡 5 分钟</button>
+      <button type="button" class="primary-btn" id="dismissButton">停止响铃</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 删除确认 ============ -->
+<div class="confirm-dialog hidden" id="deleteConfirmDialog" aria-modal="true" role="dialog">
+  <div class="confirm-dialog-card">
+    <p class="ring-kicker">Delete Alarm</p>
+    <h2>确认删除这个闹钟？</h2>
+    <p class="confirm-dialog-copy" id="deleteConfirmText">删除后将无法恢复。</p>
+    <div class="confirm-dialog-actions">
+      <button type="button" class="secondary-btn" id="cancelDeleteButton">取消</button>
+      <button type="button" class="ghost-btn" id="confirmDeleteButton">确认删除</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 重复闹钟处理 ============ -->
+<div class="confirm-dialog hidden" id="repeatAlarmChoiceDialog" aria-modal="true" role="dialog">
+  <div class="confirm-dialog-card">
+    <p class="ring-kicker">Repeat Alarm</p>
+    <h2>如何处理这个重复闹钟？</h2>
+    <p class="confirm-dialog-copy" id="repeatAlarmChoiceText">你可以只跳过下一次，也可以关闭整个重复闹钟。</p>
+    <div class="confirm-dialog-actions">
+      <button type="button" class="secondary-btn" id="cancelRepeatAlarmChoiceButton">取消</button>
+      <button type="button" class="secondary-btn" id="skipNextRepeatAlarmButton">只跳过这一次</button>
+      <button type="button" class="ghost-btn" id="disableRepeatAlarmButton">关闭整个闹钟</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 整点报时设置 ============ -->
+<div class="confirm-dialog hidden" id="hourlyChimeDialog" aria-modal="true" role="dialog">
+  <div class="confirm-dialog-card" style="width:min(480px,100%)">
+    <p class="ring-kicker">Hourly Chime</p>
+    <h2>整点报时设置</h2>
+    <div class="hourly-chime-form">
+      <label class="hourly-chime-volume-field">
+        <span>报时音量</span>
+        <div class="hourly-chime-volume-row">
+          <input type="range" id="hourlyChimeVolumeInput" min="0" max="100" step="5" value="95">
+          <strong id="hourlyChimeVolumeValue">95%</strong>
+        </div>
+      </label>
+      <div class="hourly-chime-hours-field">
+        <div class="hourly-chime-hours-head">
+          <span>报时时点</span>
+          <div class="hourly-chime-hours-actions">
+            <button type="button" class="secondary-btn mini-action-btn" id="selectAllHourlyChimeHoursButton">全选</button>
+            <button type="button" class="ghost-btn mini-action-btn" id="clearHourlyChimeHoursButton">清空</button>
+          </div>
+        </div>
+        <div class="hourly-chime-hours" id="hourlyChimeHours"></div>
+      </div>
+      <div class="hourly-chime-preview-actions" style="display:flex;gap:8px">
+        <button type="button" class="secondary-btn" id="previewHourlyChimeButton">试听报时</button>
+        <button type="button" class="ghost-btn hidden" id="stopPreviewHourlyChimeButton">停止试听</button>
+      </div>
+    </div>
+    <div class="confirm-dialog-actions">
+      <button type="button" class="secondary-btn" id="closeHourlyChimeDialogButton">关闭</button>
+      <button type="button" class="primary-btn" id="saveHourlyChimeSettingsButton">开启</button>
+    </div>
+  </div>
+</div>
+
+<div class="site-notice hidden" id="siteNotice" aria-live="polite">
+  <p class="site-notice-text" id="siteNoticeText"></p>
+</div>
+
+<template id="alarmItemTemplate">
+  <article class="alarm-item">
+    <div class="alarm-main">
+      <label class="toggle alarm-inline-toggle">
+        <input type="checkbox" class="alarm-toggle">
+        <span class="switch-ui" aria-hidden="true"></span>
+      </label>
+      <p class="alarm-clock"></p>
+      <div class="alarm-copy">
+        <p class="alarm-name"></p>
+        <p class="alarm-tone"></p>
+        <p class="alarm-status"></p>
+      </div>
+    </div>
+    <div class="alarm-actions">
+      <button type="button" class="secondary-btn alarm-edit">编辑</button>
+      <button type="button" class="ghost-btn alarm-delete">删除</button>
+    </div>
+  </article>
+</template>
+
+<script>
+/* =========================================================
+   在线闹钟 —— 全部逻辑
+   ========================================================= */
+(function(){
+"use strict";
+
+const LS_ALARMS = "naobiao.alarms.v1";
+const LS_CONFIG = "naobiao.config.v1";
+const LS_TONES  = "naobiao.customTones.v1";
+const SNOOZE_MIN = 5;
+const MAX_CUSTOM_BYTES = 1.5 * 1024 * 1024;
+
+const WEEK_CN = ["日","一","二","三","四","五","六"];
+
+const EMPTY_HTML = '<svg class="empty-art" viewBox="0 0 64 64" fill="none" stroke="#38452e" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
+  + '<circle cx="32" cy="35" r="17"/><path d="M32 26v9l6 4"/>'
+  + '<path d="M12 12l6 6M52 12l-6 6"/><path d="M20 52l-3 6M44 52l3 6"/></svg>'
+  + '<p>还没有闹钟。</p><p>先添加一个闹钟试试。</p>';
+
+/* ---------- 法定节假日（可自行维护，格式 YYYY-MM-DD） ---------- */
+const HOLIDAYS = new Set([
+  "2026-01-01","2026-01-02","2026-01-03",
+  "2026-02-16","2026-02-17","2026-02-18","2026-02-19","2026-02-20","2026-02-21","2026-02-22",
+  "2026-04-04","2026-04-05","2026-04-06",
+  "2026-05-01","2026-05-02","2026-05-03","2026-05-04","2026-05-05",
+  "2026-06-19","2026-06-20","2026-06-21",
+  "2026-09-25","2026-09-26","2026-09-27",
+  "2026-10-01","2026-10-02","2026-10-03","2026-10-04","2026-10-05","2026-10-06","2026-10-07"
+]);
+
+
+/* =========================================================
+   0. 数字字型引擎（字体 + 两种 SVG 绘制）
+   ========================================================= */
+const ClockFace = (function(){
+  /* 每种字型：字体栈 / 字重 / 字距 / 光晕 / SVG 缩放补偿
+     尺寸统一由 measureCapHeight() 动态换算，保证每种字型数字高度一致 */
+  const STYLES = [
+    { id:"default", name:"现代无衬线",
+      font:'"Trebuchet MS","Segoe UI",system-ui,sans-serif', weight:700, track:"-.02em", glow:"none" },
+    { id:"tech", name:"科幻 HUD",
+      font:'"Bahnschrift SemiBold","Bahnschrift","DIN Alternate","Agency FB","Segoe UI",sans-serif',
+      weight:600, track:".06em", glow:"0 0 20px rgba(120,215,135,.20)" },
+    { id:"mono", name:"终端等宽",
+      font:'"Cascadia Mono","Cascadia Code",Consolas,"Lucida Console",monospace',
+      weight:700, track:"-.01em", glow:"none" },
+    { id:"thin", name:"极简细体",
+      font:'"Segoe UI Light","Segoe UI","Helvetica Neue",system-ui,sans-serif',
+      weight:200, track:".07em", glow:"none" },
+    { id:"serif", name:"古典衬线",
+      font:'"Times New Roman",Times,Georgia,serif', weight:700, track:"0", glow:"none" },
+    { id:"script", name:"手写艺术",
+      font:'"Segoe Script","Lucida Handwriting","Segoe Print",cursive',
+      weight:700, track:".01em", glow:"none" },
+    { id:"impact", name:"冲击粗黑",
+      font:'Impact,"Haettenschweiler","Arial Black","Microsoft YaHei",sans-serif',
+      weight:400, track:".005em", glow:"none" },
+    { id:"seg7", name:"七段数码管", font:null, weight:700, track:"0", glow:"0 0 20px currentColor" },
+    { id:"dots", name:"点阵屏",     font:null, weight:700, track:"0", glow:"0 0 16px currentColor" }
+  ];
+
+  const SVG_STYLES = { seg7:1, dots:1 };
+  const BASE_FS = 86;       /* 参考字号：所有尺寸都以它为基准推导 */
+  const CAP_RATIO = 0.72;   /* 目标数字高度 = BASE_FS * CAP_RATIO */
+
+  let current = "default";
+  let currentCssSize = BASE_FS;
+
+  /* ---------------- 七段数码管 ---------------- */
+  const SEG_MAP = {
+    "0":"ABCDEF","1":"BC","2":"ABGED","3":"ABGCD","4":"FGBC",
+    "5":"AFGCD","6":"AFGECD","7":"ABC","8":"ABCDEFG","9":"ABCDFG"
+  };
+
+  function hSeg(x, y, w, h){
+    const a = h * 0.5;
+    return [x+a, y, x+w-a, y, x+w, y+h/2, x+w-a, y+h, x+a, y+h, x, y+h/2].join(" ");
+  }
+  function vSeg(x, y, w, h){
+    const a = w * 0.5;
+    return [x, y+a, x+w/2, y, x+w, y+a, x+w, y+h-a, x+w/2, y+h, x, y+h-a].join(" ");
+  }
+
+  /* 单个数码管字符画在 60×100 格内 */
+  function seg7Digit(ch){
+    const segs = SEG_MAP[ch];
+    if(!segs) return "";
+    const W = 60, H = 100, T = 11;   /* T = 笔画粗细 */
+    const x0 = 0, x1 = W - T;
+    const yT = 0, yM = (H - T) / 2, yB = H - T;
+    const has = function(n){ return segs.indexOf(n) >= 0; };
+    const parts = [];
+    const hw = W - T * 1.7;          /* 横段长度（两端缩进避免与竖段叠） */
+    const vh = (H - T * 2.4) / 2;     /* 竖段长度 */
+
+    if(has("A")) parts.push(hSeg(T*0.85, yT, hw, T));
+    if(has("G")) parts.push(hSeg(T*0.85, yM, hw, T));
+    if(has("D")) parts.push(hSeg(T*0.85, yB, hw, T));
+    if(has("F")) parts.push(vSeg(x0, T*0.9, T, vh));
+    if(has("B")) parts.push(vSeg(x1, T*0.9, T, vh));
+    if(has("E")) parts.push(vSeg(x0, H/2 + T*0.3, T, vh));
+    if(has("C")) parts.push(vSeg(x1, H/2 + T*0.3, T, vh));
+
+    return parts.map(function(p){ return '<polygon points="' + p + '"/>'; }).join("");
+  }
+
+  /* ---------------- 5×7 点阵 ---------------- */
+  const DOT_MAP = {
+    "0":["01110","10001","10011","10101","11001","10001","01110"],
+    "1":["00100","01100","00100","00100","00100","00100","01110"],
+    "2":["01110","10001","00001","00010","00100","01000","11111"],
+    "3":["11110","00001","00001","01110","00001","00001","11110"],
+    "4":["00010","00110","01010","10010","11111","00010","00010"],
+    "5":["11111","10000","11110","00001","00001","10001","01110"],
+    "6":["00110","01000","10000","11110","10001","10001","01110"],
+    "7":["11111","00001","00010","00100","01000","01000","01000"],
+    "8":["01110","10001","10001","01110","10001","10001","01110"],
+    "9":["01110","10001","10001","01111","00001","00010","01100"],
+    ":":["00000","00110","00110","00000","00110","00110","00000"]
+  };
+
+  function dotGlyph(ch, ox, r, pitch){
+    const rows = DOT_MAP[ch];
+    if(!rows) return ["",""];
+    let on = "", off = "";
+    for(let y=0;y<rows.length;y++){
+      for(let x=0;x<rows[y].length;x++){
+        const cx = ox + x*pitch + pitch/2;
+        const cy = y*pitch + pitch/2;
+        if(rows[y][x] === "1"){
+          on += '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '"/>';
+        } else {
+          off += '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill-opacity=".085"/>';
+        }
+      }
+    }
+    return [off, on];
+  }
+
+  /* ---------------- 生成 SVG ---------------- */
+  function svgFor(text, style){
+    const chars = String(text).split("");
+    if(style === "seg7"){
+      const DW = 60, GAP = 11, COLON_W = 28, COLON_GAP = 7;
+      let x = 0, body = "";
+      chars.forEach(function(ch){
+        if(ch === ":"){
+          const cx = x + COLON_W/2 - 5.5;
+          body += '<rect x="' + cx + '" y="22" width="11" height="11" rx="2.5"/>'
+                + '<rect x="' + cx + '" y="67" width="11" height="11" rx="2.5"/>';
+          x += COLON_W + COLON_GAP;
+        } else if(ch === "."){
+          body += '<rect x="' + (x - 5) + '" y="89" width="11" height="11" rx="2.5"/>';
+          x += 13;
+        } else {
+          body += '<g transform="translate(' + x + ',0)">' + seg7Digit(ch) + '</g>';
+          x += DW + GAP;
+        }
+      });
+      const W = Math.max(1, x - GAP);
+      return '<svg class="digits" viewBox="0 0 ' + W + ' 100" preserveAspectRatio="xMidYMid meet" fill="currentColor">' + body + '</svg>';
+    }
+
+    if(style === "dots"){
+      const PITCH = 13, R = 4.4, CHAR_GAP = 9;
+      let x = 0, off = "", on = "";
+      chars.forEach(function(ch){
+        const g = dotGlyph(ch, x, R, PITCH);
+        off += g[0]; on += g[1];
+        x += 5*PITCH + CHAR_GAP;
+      });
+      const W = Math.max(1, x - CHAR_GAP);
+      const H = 7*PITCH;
+      return '<svg class="digits" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet" fill="currentColor">'
+        + off + on + '</svg>';
+    }
+    return null;
+  }
+
+  function isSvg(style){ return !!SVG_STYLES[style === undefined ? current : style]; }
+  function escapeHtml(t){ return String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+  /* 数字串 → innerHTML（SVG 或纯文本） */
+  function html(text){
+    if(isSvg()){
+      const svg = svgFor(text, current);
+      if(svg) return svg;
+    }
+    return escapeHtml(text);
+  }
+
+  /* 时:分[:秒] → innerHTML */
+  function htmlClock(h, m, s){
+    const hasSec = (s !== undefined && s !== null);
+    if(isSvg()){
+      return svgFor(h + ":" + m + (hasSec ? ":" + s : ""), current);
+    }
+    return h + '<span class="sep">:</span>' + m + (hasSec ? '<span class="sep">:</span>' + s : "");
+  }
+
+  /* ---------------- 尺寸归一化 ---------------- */
+  /* 基准字号下实际画一遍数字，扫描像素得到真实高度。
+     比 measureText 的 ascent 准：那个值对 Gabriola 之类
+     带大字面降部的字体偏差很大，会导致数字明显偏矮或偏高。 */
+  const REF_FS = 100;
+  const measureCache = {};
+
+  function measureCapHeight(font, weight){
+    const key = weight + "|" + font;
+    if(measureCache[key]) return measureCache[key];
+
+    let h = 72;
+    try{
+      const cv = document.createElement("canvas");
+      cv.width = 900; cv.height = 260;
+      const c = cv.getContext("2d");
+      c.font = weight + " " + REF_FS + "px " + font;
+      c.textBaseline = "alphabetic";
+      c.fillStyle = "#fff";
+      c.fillText("0123456789", 10, 180);
+
+      const data = c.getImageData(0, 0, cv.width, cv.height).data;
+      let top = -1, bottom = -1;
+      for(let y=0;y<cv.height;y++){
+        let hit = 0;
+        const row = y * cv.width * 4;
+        for(let x=0;x<cv.width;x++){
+          if(data[row + x*4 + 3] > 40){ hit++; if(hit > 2) break; }
+        }
+        if(hit > 2){ if(top < 0) top = y; bottom = y; }
+      }
+      if(top >= 0 && bottom > top) h = bottom - top + 1;
+    }catch(e){}
+
+    h = Math.min(160, Math.max(40, h));
+    measureCache[key] = h;
+    return h;
+  }
+
+  /* ---------------- 应用字型 ---------------- */
+  function apply(styleId, skipRender){
+    let st = null;
+    STYLES.forEach(function(x){ if(x.id === styleId) st = x; });
+    if(!st){ st = STYLES[0]; }
+    current = st.id;
+
+    const root = document.body;
+    root.classList.toggle("svg-clock", isSvg(st.id));
+
+    if(st.font){
+      const cap = measureCapHeight(st.font, st.weight);
+      /* 目标数字高度固定为 BASE_FS * CAP_RATIO，算出对应 font-size；
+         tune 用于修正个别字体（如 Gabriola 手写体）canvas 测不准的偏差 */
+      const fs = (BASE_FS * CAP_RATIO / cap) * 100 * (st.tune || 1);
+      currentCssSize = Math.round(fs * 100) / 100;
+      root.style.setProperty("--clock-fs", currentCssSize + "px");
+      root.style.setProperty("--clock-font", st.font);
+    } else {
+      currentCssSize = BASE_FS;
+      root.style.setProperty("--clock-fs", BASE_FS + "px");
+      root.style.setProperty("--clock-font", "inherit");
+    }
+    root.style.setProperty("--clock-weight", st.weight);
+    root.style.setProperty("--clock-track", st.track);
+    root.style.setProperty("--clock-glow", st.glow);
+
+    Array.prototype.forEach.call(document.querySelectorAll(".style-select"), function(el){
+      if(el.value !== st.id) el.value = st.id;
+    });
+    Array.prototype.forEach.call(document.querySelectorAll(".night-style-chip"), function(el){
+      el.classList.toggle("on", el.dataset.style === st.id);
+    });
+
+    if(!skipRender){
+      clockSig = "";
+      lastClockText = "";     // 必须一起重置，否则同一秒内切换字型不生效
+      renderClock();
+      if(typeof Night !== "undefined" && Night.resetCache) Night.resetCache();
+      listLastKey = "";
+      renderList(true);
+      if(typeof Night !== "undefined" && Night.isActive && Night.isActive()) Night.paint();
+    }
+  }
+
+  function init(){
+    /* 主界面下拉 */
+    Array.prototype.forEach.call(document.querySelectorAll(".style-select"), function(el){
+      el.innerHTML = "";
+      STYLES.forEach(function(st){
+        const o = document.createElement("option");
+        o.value = st.id; o.textContent = st.name;
+        el.appendChild(o);
+      });
+      el.value = current;
+      if(!el.dataset.bound){
+        el.dataset.bound = "1";
+        el.addEventListener("change", function(){
+          apply(el.value);
+          config.clockStyle = el.value;
+          saveConfig();
+        });
+      }
+    });
+
+    /* 黑屏模式浮层 */
+    const panel = document.getElementById("nightStylePanel");
+    const btn = document.getElementById("nightStyleButton");
+    if(panel && btn && !panel.dataset.bound){
+      panel.dataset.bound = "1";
+      STYLES.forEach(function(st){
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "night-style-chip" + (st.id === current ? " on" : "");
+        b.textContent = st.name;
+        b.dataset.style = st.id;
+        b.addEventListener("click", function(e){
+          e.stopPropagation();
+          apply(st.id);
+          config.clockStyle = st.id;
+          saveConfig();
+        });
+        panel.appendChild(b);
+      });
+      btn.addEventListener("click", function(e){
+        e.stopPropagation();
+        panel.classList.toggle("hidden");
+      });
+      panel.addEventListener("click", function(e){ e.stopPropagation(); });
+    }
+  }
+
+  return {
+    STYLES: STYLES, init: init, apply: apply,
+    html: html, htmlClock: htmlClock,
+    isSvg: function(){ return isSvg(); },
+    current: function(){ return current; },
+    svgFor: svgFor,
+    baseFs: function(){ return currentCssSize; }
+  };
+})();
+
+
+/* =========================================================
+   1. 音频引擎（纯合成，无外部音频文件）
+   ========================================================= */
+const Engine = (function(){
+  let ctx = null, master = null;
+  let loopTimer = null, cycleGain = null, stopAt = 0, stopped = true;
+  let customEl = null;
+
+  function ensure(){
+    if(!ctx){
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if(!AC) return null;
+      ctx = new AC();
+      master = ctx.createGain();
+      master.gain.value = 0.9;
+      master.connect(ctx.destination);
+    }
+    if(ctx.state === "suspended") ctx.resume().catch(function(){});
+    return ctx;
+  }
+
+  function state(){
+    if(!ctx) return "none";
+    return ctx.state;
+  }
+
+  /* --- 基础音色 --- */
+  function tone(t0, opts){
+    const o = ctx.createOscillator();
+    o.type = opts.type || "sine";
+    o.frequency.setValueAtTime(opts.freq, t0);
+    if(opts.to) o.frequency.exponentialRampToValueAtTime(Math.max(opts.to,1), t0 + (opts.slide || opts.dur * 0.85));
+    if(opts.detune) o.detune.setValueAtTime(opts.detune, t0);
+
+    let node = o;
+    if(opts.filter){
+      const f = ctx.createBiquadFilter();
+      f.type = opts.filter;
+      f.frequency.setValueAtTime(opts.cutoff || 1200, t0);
+      if(opts.cutoffTo) f.frequency.exponentialRampToValueAtTime(opts.cutoffTo, t0 + opts.dur);
+      f.Q.value = opts.q || 1;
+      o.connect(f); node = f;
+    }
+    const g = ctx.createGain();
+    const peak = Math.max(opts.gain == null ? 0.22 : opts.gain, 0.0001);
+    const atk = opts.atk == null ? 0.006 : opts.atk;
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(peak, t0 + atk);
+    if(opts.hold) g.gain.setValueAtTime(peak, t0 + atk + opts.hold);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + opts.dur);
+    node.connect(g); g.connect(opts.dest);
+    o.start(t0); o.stop(t0 + opts.dur + 0.03);
+    return o;
+  }
+
+  function bell(t0, freq, gain, dest, decay){
+    const partials = [[1,1],[2,0.5],[2.76,0.32],[5.4,0.16],[8.9,0.08]];
+    decay = decay || 1.6;
+    partials.forEach(function(p){
+      tone(t0, {type:"sine", freq:freq*p[0], dur:decay*(1/p[0]*0.6+0.4), gain:gain*p[1], atk:0.004, dest:dest});
+    });
+  }
+
+  function noise(t0, opts){
+    const dur = opts.dur || 0.08;
+    const len = Math.max(1, Math.floor(ctx.sampleRate * dur));
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for(let i=0;i<len;i++) d[i] = (Math.random()*2-1);
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const f = ctx.createBiquadFilter();
+    f.type = opts.filter || "highpass";
+    f.frequency.value = opts.freq || 4000;
+    f.Q.value = opts.q || 0.8;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(opts.gain || 0.2, t0);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    src.connect(f); f.connect(g); g.connect(opts.dest);
+    src.start(t0); src.stop(t0 + dur + 0.01);
+  }
+
+  function kick(t0, gain, dest){
+    tone(t0, {type:"sine", freq:150, to:45, dur:0.28, gain:gain||0.5, atk:0.002, dest:dest});
+  }
+
+  function midi(n){ return 440 * Math.pow(2, (n-69)/12); }
+
+  /* --- 铃声预设 --- */
+  const TONES = [
+    { id:"digital_beep", name:"[经典] 电子滴滴", group:"经典", build:function(t,d){
+        [0,0.28,0.56].forEach(function(o){ tone(t+o,{type:"square",freq:1050,dur:0.16,gain:0.16,atk:0.004,dest:d,filter:"bandpass",cutoff:1800,q:1.2}); });
+        return 1.6; } },
+
+    { id:"ding_dong", name:"[经典] 双音叮咚", group:"经典", build:function(t,d){
+        bell(t, midi(84), 0.22, d, 1.3);
+        bell(t+0.36, midi(79), 0.24, d, 1.8);
+        return 2.0; } },
+
+    { id:"church_bell", name:"[经典] 教堂钟声", group:"经典", build:function(t,d){
+        bell(t, 196, 0.28, d, 3.4);
+        bell(t+1.5, 196, 0.2, d, 3.0);
+        return 3.2; } },
+
+    { id:"alarm_clock_ring", name:"[经典] 老式闹铃", group:"经典", build:function(t,d){
+        for(let i=0;i<14;i++){
+          tone(t+i*0.062, {type:"square", freq: i%2 ? 1180 : 1420, dur:0.05, gain:0.09, atk:0.002, dest:d});
+        }
+        return 1.05; } },
+
+    { id:"march_horn", name:"[经典] 运动员进行曲", group:"经典", build:function(t,d){
+        const mel = [[0,67,.24],[.25,67,.24],[.5,67,.24],[.75,72,.5],[1.35,71,.24],[1.6,72,.24],[1.85,74,.6]];
+        mel.forEach(function(m){
+          tone(t+m[0], {type:"sawtooth", freq:midi(m[1]), dur:m[2]*1.05, gain:0.14, atk:0.02, dest:d, filter:"lowpass", cutoff:2400, q:0.8});
+          tone(t+m[0], {type:"square", freq:midi(m[1]-12), dur:m[2], gain:0.06, atk:0.02, dest:d, filter:"lowpass", cutoff:1200});
+        });
+        return 2.6; } },
+
+    { id:"siren", name:"[劲爆] 警报长鸣", group:"劲爆", build:function(t,d){
+        tone(t, {type:"sawtooth", freq:420, to:900, slide:0.45, dur:0.9, gain:0.17, atk:0.05, dest:d, filter:"lowpass", cutoff:2600});
+        tone(t+0.95, {type:"sawtooth", freq:900, to:420, slide:0.45, dur:0.9, gain:0.17, atk:0.05, dest:d, filter:"lowpass", cutoff:2600});
+        return 1.9; } },
+
+    { id:"bass_shake", name:"[劲爆] 低音震撼", group:"劲爆", build:function(t,d){
+        kick(t,0.55,d); kick(t+0.5,0.45,d); kick(t+0.75,0.4,d);
+        tone(t,{type:"sawtooth",freq:55,dur:0.45,gain:0.2,atk:0.004,dest:d,filter:"lowpass",cutoff:320,q:1.4});
+        tone(t+0.75,{type:"sawtooth",freq:41,dur:0.4,gain:0.18,atk:0.004,dest:d,filter:"lowpass",cutoff:260,q:1.4});
+        return 1.4; } },
+
+    { id:"dance_beat", name:"[劲爆] 舞曲节拍", group:"劲爆", build:function(t,d){
+        for(let i=0;i<4;i++) kick(t+i*0.5, 0.42, d);
+        for(let i=0;i<8;i++) noise(t+i*0.25+0.125, {dur:0.05,gain:0.07,freq:7000,dest:d});
+        [0,2,4,6].forEach(function(i,idx){
+          const n = [69,72,76,79][idx];
+          tone(t+i*0.25, {type:"square", freq:midi(n), dur:0.18, gain:0.09, atk:0.005, dest:d, filter:"lowpass", cutoff:3200});
+        });
+        return 2.0; } },
+
+    { id:"rooster", name:"[劲爆] 鸡叫连鸣", group:"劲爆", build:function(t,d){
+        for(let i=0;i<3;i++){
+          const b = t + i*0.42;
+          tone(b, {type:"sawtooth", freq:620, to:980, slide:0.1, dur:0.1, gain:0.16, atk:0.006, dest:d, filter:"bandpass", cutoff:1500, q:2.2, cutoffTo:2200});
+          tone(b+0.11, {type:"sawtooth", freq:980, to:640, slide:0.16, dur:0.2, gain:0.14, atk:0.006, dest:d, filter:"bandpass", cutoff:1800, q:2});
+        }
+        return 1.5; } },
+
+    { id:"pluck_fresh", name:"[清新] 清脆拨弦", group:"清新", build:function(t,d){
+        const notes=[72,76,79,84,79,76];
+        notes.forEach(function(n,i){
+          tone(t+i*0.16, {type:"triangle", freq:midi(n), dur:0.42, gain:0.16, atk:0.003, dest:d, filter:"lowpass", cutoff:4200, q:0.7});
+        });
+        return 1.6; } },
+
+    { id:"crystal_birds", name:"[清新] 水晶鸟鸣", group:"清新", build:function(t,d){
+        [0,0.22,0.5,0.78,1.06].forEach(function(o,i){
+          const f = 2200 + Math.random()*1400;
+          tone(t+o, {type:"sine", freq:f, to:f*1.35, slide:0.07, dur:0.14, gain:0.1, atk:0.003, dest:d});
+          tone(t+o+0.02, {type:"sine", freq:f*1.5, dur:0.1, gain:0.04, atk:0.003, dest:d});
+        });
+        bell(t+1.3, midi(88), 0.12, d, 1.2);
+        return 2.2; } },
+
+    { id:"glass_wind", name:"[清新] 风铃轻语", group:"清新", build:function(t,d){
+        [84,88,91,96,88].forEach(function(n,i){
+          bell(t+i*0.28, midi(n), 0.1, d, 1.1);
+        });
+        return 2.0; } },
+
+    { id:"canon_arp", name:"[舒缓] 卡农琶音", group:"舒缓", build:function(t,d){
+        const arp=[62,69,66,74,69,76,74,69];
+        arp.forEach(function(n,i){
+          tone(t+i*0.3, {type:"triangle", freq:midi(n), dur:0.9, gain:0.13, atk:0.008, dest:d, filter:"lowpass", cutoff:2600, q:0.6});
+        });
+        tone(t, {type:"sine", freq:midi(50), dur:2.4, gain:0.1, atk:0.2, dest:d});
+        return 2.4; } },
+
+    { id:"marimba_soft", name:"[舒缓] 马林巴清晨", group:"舒缓", build:function(t,d){
+        [[0,76],[0.5,79],[1.0,83],[1.5,79]].forEach(function(m){
+          tone(t+m[0], {type:"sine", freq:midi(m[1]), dur:0.75, gain:0.18, atk:0.004, dest:d});
+          tone(t+m[0], {type:"sine", freq:midi(m[1])*4, dur:0.18, gain:0.05, atk:0.003, dest:d});
+        });
+        return 2.2; } },
+
+    { id:"mermaid", name:"[舒缓] 海浪人鱼", group:"舒缓", build:function(t,d){
+        tone(t, {type:"sine", freq:midi(69), dur:1.6, gain:0.11, atk:0.3, dest:d});
+        tone(t, {type:"sine", freq:midi(72), dur:1.6, gain:0.09, atk:0.4, dest:d});
+        tone(t+0.8, {type:"sine", freq:midi(76), dur:1.4, gain:0.08, atk:0.35, dest:d});
+        noise(t, {dur:2.0, gain:0.05, filter:"bandpass", freq:900, q:0.5, dest:d});
+        return 2.4; } },
+
+    { id:"chiptune", name:"[其它] 复古八位机", group:"其它", build:function(t,d){
+        const mel=[[0,72],[0.15,72],[0.3,79],[0.5,76],[0.65,72],[0.8,79],[1.0,84]];
+        mel.forEach(function(m){
+          tone(t+m[0], {type:"square", freq:midi(m[1]), dur:0.13, gain:0.1, atk:0.003, dest:d});
+        });
+        tone(t, {type:"triangle", freq:midi(48), dur:0.5, gain:0.14, atk:0.004, dest:d});
+        return 1.5; } },
+
+    { id:"dawn_piano", name:"[其它] 晨光和弦", group:"其它", build:function(t,d){
+        [60,64,67,71].forEach(function(n){
+          tone(t, {type:"sine", freq:midi(n), dur:2.2, gain:0.1, atk:0.02, dest:d});
+          tone(t, {type:"triangle", freq:midi(n)*2, dur:1.2, gain:0.03, atk:0.02, dest:d});
+        });
+        return 2.6; } }
+  ];
+
+  const TONE_MAP = {};
+  TONES.forEach(function(t){ TONE_MAP[t.id] = t; });
+
+  /* --- 播放控制 --- */
+  function hardStop(){
+    stopped = true;
+    if(loopTimer){ clearTimeout(loopTimer); loopTimer = null; }
+    if(cycleGain){
+      try{
+        cycleGain.gain.cancelScheduledValues(ctx.currentTime);
+        cycleGain.gain.setValueAtTime(cycleGain.gain.value, ctx.currentTime);
+        cycleGain.gain.linearRampToValueAtTime(0.0001, ctx.currentTime + 0.08);
+        const g = cycleGain;
+        setTimeout(function(){ try{ g.disconnect(); }catch(e){} }, 260);
+      }catch(e){}
+      cycleGain = null;
+    }
+    if(customEl){ try{ customEl.pause(); customEl.currentTime = 0; }catch(e){} customEl = null; }
+  }
+
+  function stop(){ hardStop(); }
+
+  /* 播放预设铃声；duration=0 表示一直循环 */
+  function playPreset(id, volume, duration, onEnd){
+    const c = ensure(); if(!c) return;
+    hardStop();
+    const preset = TONE_MAP[id] || TONE_MAP.digital_beep;
+    cycleGain = c.createGain();
+    cycleGain.gain.value = 1;
+    cycleGain.connect(master);
+    master.gain.setValueAtTime(clamp(volume,0,1), c.currentTime);
+    stopped = false;
+    stopAt = duration > 0 ? performance.now() + duration*1000 : 0;
+    let next = c.currentTime + 0.06;
+
+    function pump(){
+      if(stopped) return;
+      const horizon = c.currentTime + 0.8;
+      let guard = 0;
+      while(next < horizon && guard < 12){
+        const len = Math.max(0.2, preset.build(next, cycleGain));
+        next += len;
+        guard++;
+      }
+      if(stopAt && performance.now() >= stopAt){
+        hardStop();
+        if(typeof onEnd === "function") onEnd();
+        return;
+      }
+      loopTimer = setTimeout(pump, 180);
+    }
+    pump();
+  }
+
+  /* 播放自定义音频 */
+  function playCustom(dataUrl, volume, duration, onEnd){
+    hardStop();
+    const el = new Audio();
+    el.src = dataUrl;
+    el.loop = true;
+    el.volume = clamp(volume, 0, 1);
+    customEl = el;
+    stopped = false;
+    el.play().catch(function(){});
+    if(duration > 0){
+      setTimeout(function(){
+        if(customEl === el){
+          try{ el.pause(); }catch(e){}
+          customEl = null;
+          if(typeof onEnd === "function") onEnd();
+        }
+      }, duration*1000);
+    }
+  }
+
+  /* 整点报时：广播式 5 声 */
+  function playChime(volume){
+    const c = ensure(); if(!c) return;
+    master.gain.setValueAtTime(clamp(volume,0,1), c.currentTime);
+    const g = c.createGain(); g.gain.value = 1; g.connect(master);
+    const t = c.currentTime + 0.05;
+    [0,0.45,0.9,1.35].forEach(function(o){
+      tone(t+o, {type:"sine", freq:880, dur:0.28, gain:0.28, atk:0.006, hold:0.1, dest:g});
+      tone(t+o, {type:"sine", freq:1760, dur:0.16, gain:0.06, atk:0.004, dest:g});
+    });
+    tone(t+1.85, {type:"sine", freq:1320, dur:0.55, gain:0.3, atk:0.006, hold:0.2, dest:g});
+    tone(t+1.85, {type:"sine", freq:2640, dur:0.35, gain:0.07, atk:0.004, dest:g});
+    setTimeout(function(){ try{ g.disconnect(); }catch(e){} }, 3200);
+  }
+
+  function clamp(v,a,b){ return Math.min(b, Math.max(a, v)); }
+
+  return {ensure:ensure, state:state, playPreset:playPreset, playCustom:playCustom, playChime:playChime, stop:stop, TONES:TONES, TONE_MAP:TONE_MAP};
+})();
+
+/* =========================================================
+   2. 状态
+   ========================================================= */
+let alarms = [];
+let config = { timeMode:"device", clockStyle:"default", hourly:{ enabled:false, hours:[], volume:95 } };
+let customTones = {};      // id -> { name, dataUrl }
+let editingId = null;
+let pendingDeleteId = null;
+let pendingRepeatId = null;
+let ringing = null;
+let prevHour = null;
+
+/* ---------- 工具函数 ---------- */
+function pad(n, len){ n = String(n); len = len || 2; while(n.length < len) n = "0" + n; return n; }
+function uid(){ return "a" + Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+function clamp(v,a,b){ return Math.min(b, Math.max(a,v)); }
+
+/* 时间坐标系：device 模式 shift=0；beijing 模式把时间整体平移到北京时间。
+   所有调度比较都在「平移后的时间轴」上做，避免时区换算误差。 */
+function shiftMs(){
+  if(config.timeMode !== "beijing") return 0;
+  return (480 + new Date().getTimezoneOffset()) * 60000;
+}
+function nowWall(){ return Date.now() + shiftMs(); }
+function wallDate(ms){ return new Date(ms === undefined ? nowWall() : ms); }
+
+function dayKey(d){ return d.getFullYear() + "-" + pad(d.getMonth()+1) + "-" + pad(d.getDate()); }
+function fmtClock(h,m,s){
+  return pad(h) + ":" + pad(m) + (s === undefined ? "" : ":" + pad(s));
+}
+function fmtStamp(ms){
+  const d = wallDate(ms);
+  return fmtClock(d.getHours(), d.getMinutes(), d.getSeconds());
+}
+
+/* ---------- 持久化 ---------- */
+function saveAlarms(){ try{ localStorage.setItem(LS_ALARMS, JSON.stringify(alarms)); }catch(e){ toast("本地存储空间不足，保存失败"); } }
+function saveConfig(){ try{ localStorage.setItem(LS_CONFIG, JSON.stringify(config)); }catch(e){} }
+function saveTones(){ try{ localStorage.setItem(LS_TONES, JSON.stringify(customTones)); }catch(e){} }
+
+function loadAll(){
+  try{
+    const a = JSON.parse(localStorage.getItem(LS_ALARMS) || "[]");
+    if(Array.isArray(a)) alarms = a.map(normalizeAlarm);
+  }catch(e){ alarms = []; }
+  try{
+    const c = JSON.parse(localStorage.getItem(LS_CONFIG) || "null");
+    if(c && typeof c === "object"){
+      config.timeMode = c.timeMode === "beijing" ? "beijing" : "device";
+      if(typeof c.clockStyle === "string") config.clockStyle = c.clockStyle;
+      if(c.hourly && typeof c.hourly === "object"){
+        config.hourly.enabled = !!c.hourly.enabled;
+        config.hourly.hours = Array.isArray(c.hourly.hours) ? c.hourly.hours.filter(function(x){ return x>=0 && x<24; }) : [];
+        config.hourly.volume = typeof c.hourly.volume === "number" ? c.hourly.volume : 95;
+      }
+    }
+  }catch(e){}
+  try{
+    const t = JSON.parse(localStorage.getItem(LS_TONES) || "{}");
+    if(t && typeof t === "object") customTones = t;
+  }catch(e){}
+}
+
+function normalizeAlarm(a){
+  return {
+    id: a.id || uid(),
+    time: /^\d{2}:\d{2}(:\d{2})?$/.test(a.time) ? (a.time.length === 5 ? a.time + ":00" : a.time) : "07:00:00",
+    label: typeof a.label === "string" ? a.label : "",
+    repeat: ["once","daily","specific_date","weekdays","holidays","custom"].indexOf(a.repeat) >= 0 ? a.repeat : "once",
+    date: a.date || "",
+    days: Array.isArray(a.days) ? a.days.filter(function(d){ return d>=0 && d<=6; }) : [],
+    toneId: a.toneId || "digital_beep",
+    duration: typeof a.duration === "number" ? a.duration : 0,
+    enabled: a.enabled !== false,
+    skipAt: typeof a.skipAt === "number" ? a.skipAt : null,
+    snoozeUntil: typeof a.snoozeUntil === "number" ? a.snoozeUntil : null,
+    lastFireKey: a.lastFireKey || null
+  };
+}
+
+/* ---------- 下次响铃时间 ---------- */
+function matchesDay(a, d){
+  const dow = d.getDay();
+  switch(a.repeat){
+    case "daily": return true;
+    case "once": return true;
+    case "weekdays": return dow >= 1 && dow <= 5;
+    case "holidays": return dow === 0 || dow === 6 || HOLIDAYS.has(dayKey(d));
+    case "custom": return a.days.indexOf(dow) >= 0;
+    case "specific_date": return dayKey(d) === a.date;
+    default: return true;
+  }
+}
+
+function nextOccurrence(a, fromMs){
+  const parts = a.time.split(":");
+  const h = +parts[0], mi = +parts[1], se = +(parts[2] || 0);
+
+  if(a.repeat === "specific_date"){
+    if(!a.date) return null;
+    const dp = a.date.split("-");
+    const d = new Date(+dp[0], +dp[1]-1, +dp[2], h, mi, se, 0);
+    const ms = d.getTime();
+    if(isNaN(ms) || ms <= fromMs) return null;
+    if(a.skipAt !== null && ms === a.skipAt) return null;
+    return ms;
+  }
+
+  /* 单次闹钟响过一次就结束，不再排下一次 */
+  if(a.repeat === "once" && a.lastFireKey) return null;
+
+  const base = new Date(fromMs);
+  const limit = a.repeat === "once" ? 2 : 400;
+  for(let i=0;i<=limit;i++){
+    const d = new Date(base.getFullYear(), base.getMonth(), base.getDate()+i, h, mi, se, 0);
+    const ms = d.getTime();
+    if(ms <= fromMs) continue;
+    if(a.skipAt !== null && ms === a.skipAt) continue;
+    if(matchesDay(a, d)) return ms;
+  }
+  return null;
+}
+
+/* 判断当前时刻是否正好到点（容忍度 tol 毫秒，用于规避后台标签页节流） */
+function dueOccurrence(a, nowMs, tol){
+  const parts = a.time.split(":");
+  const h = +parts[0], mi = +parts[1], se = +(parts[2] || 0);
+  const base = new Date(nowMs);
+  for(let i=0;i<=1;i++){
+    const d = new Date(base.getFullYear(), base.getMonth(), base.getDate()-i, h, mi, se, 0);
+    const ms = d.getTime();
+    const diff = nowMs - ms;
+    if(diff < 0 || diff > tol) continue;
+    if(!matchesDay(a, d)) continue;
+    if(a.skipAt !== null && ms === a.skipAt) continue;
+    return ms;
+  }
+  return null;
+}
+
+/* 距离文本：今天 07:00 / 明天 07:00 / 周四 07:00 / 2026-11-20 07:00 */
+function describeWhen(a, ms){
+  const now = wallDate(nowWall());
+  const d = wallDate(ms);
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const target = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const diffDays = Math.round((target - today) / 86400000);
+  const hm = fmtClock(d.getHours(), d.getMinutes(), d.getSeconds());
+  if(diffDays === 0) return "今天 " + hm;
+  if(diffDays === 1) return "明天 " + hm;
+  if(diffDays === 2) return "后天 " + hm;
+  if(diffDays > 2 && diffDays < 7) return "周" + WEEK_CN[d.getDay()] + " " + hm;
+  return (d.getMonth()+1) + "月" + d.getDate() + "日 " + hm;
+}
+
+function repeatText(a){
+  switch(a.repeat){
+    case "once": return "单次";
+    case "daily": return "每天";
+    case "weekdays": return "工作日";
+    case "holidays": return "节假日";
+    case "specific_date": return a.date ? a.date + " 单次" : "指定日期";
+    case "custom":
+      if(!a.days.length) return "自定义星期";
+      return "每周" + a.days.slice().sort().map(function(d){ return WEEK_CN[d]; }).join("、");
+    default: return "";
+  }
+}
+
+function toneName(toneId){
+  if(toneId && toneId.indexOf("custom:") === 0){
+    const t = customTones[toneId.slice(7)];
+    return t ? "自定义 · " + t.name : "自定义铃声（丢失）";
+  }
+  const t = Engine.TONE_MAP[toneId];
+  return t ? t.name : "未知铃声";
+}
+
+function durationText(d){
+  if(!d) return "一直响铃";
+  if(d < 60) return "响 " + d + " 秒";
+  return "响 " + Math.round(d/60) + " 分钟";
+}
+
+/* =========================================================
+   3. 渲染
+   ========================================================= */
+const el = {
+  currentTime: document.getElementById("currentTime"),
+  currentDate: document.getElementById("currentDate"),
+  nextAlarmText: document.getElementById("nextAlarmText"),
+  countdownText: document.getElementById("countdownText"),
+  stopSnoozeButton: document.getElementById("stopSnoozeButton"),
+  alarmList: document.getElementById("alarmList"),
+  alarmCount: document.getElementById("alarmCount"),
+  clearDisabled: document.getElementById("clearDisabledAlarmsButton"),
+  startupOverlay: document.getElementById("startupOverlay"),
+  authSuccess: document.getElementById("audioPermissionSuccess"),
+  hourlyToggle: document.getElementById("hourlyChimeToggle"),
+  notice: document.getElementById("siteNotice"),
+  noticeText: document.getElementById("siteNoticeText")
+};
+
+/* 列表渲染成本低且有签名去重，直接同步执行，避免异步排队导致状态滞后 */
+function queueRenderList(){ renderList(); }
+
+let clockSig = "";
+let lastClockText = "";
+function renderClock(){
+  const now = wallDate();
+  const sig = now.getFullYear()+"-"+now.getMonth()+"-"+now.getDate()+" "+now.getHours()+":"+now.getMinutes()+":"+now.getSeconds()+"|"+config.timeMode;
+  if(sig === clockSig) return;
+  clockSig = sig;
+  const h = pad(now.getHours()), m = pad(now.getMinutes()), s = pad(now.getSeconds());
+  const text = h + ":" + m + ":" + s;
+  if(text === lastClockText) return;
+  lastClockText = text;
+  el.currentTime.innerHTML = ClockFace.htmlClock(h, m, s);
+  /* 冒号按秒闪烁：纯 class 切换，不跑动画 */
+  const odd = (+s % 2) === 1;
+  Array.prototype.forEach.call(el.currentTime.querySelectorAll(".sep"), function(x){
+    x.classList.toggle("dim", odd);
+  });
+  el.currentDate.textContent = now.getFullYear() + "年" + (now.getMonth()+1) + "月" + now.getDate() + "日 星期" + WEEK_CN[now.getDay()]
+    + (config.timeMode === "beijing" ? " · 北京时间" : " · 设备时间");
+}
+
+let listLastKey = "";
+function listSignature(){
+  const nowMs = nowWall();
+  return alarms.map(function(a){
+    const nxt = a.enabled ? (a.snoozeUntil || nextOccurrence(a, nowMs) || 0) : 0;
+    return [a.id,a.time,a.label,a.repeat,a.date,(a.days||[]).join(","),a.enabled?"1":"0",a.toneId,a.duration,a.snoozeUntil,nxt].join("~");
+  }).join("|");
+}
+function renderList(force){
+  if(!force && listSignature() === listLastKey) return;
+  listLastKey = listSignature();
+  const list = el.alarmList;
+  list.innerHTML = "";
+  if(!alarms.length){
+    const box = document.createElement("div");
+    box.className = "empty-state";
+    box.innerHTML = EMPTY_HTML;
+    list.appendChild(box);
+  } else {
+    const tpl = document.getElementById("alarmItemTemplate");
+    const nowMs = nowWall();
+    alarms.slice().sort(function(a,b){ return a.time.localeCompare(b.time); }).forEach(function(a){
+      const node = tpl.content.firstElementChild.cloneNode(true);
+      node.dataset.id = a.id;
+      node.classList.toggle("is-off", !a.enabled);
+      const toggle = node.querySelector(".alarm-toggle");
+      toggle.checked = a.enabled;
+      const ap = a.time.split(":");
+      if(ClockFace.isSvg()) node.querySelector(".alarm-clock").innerHTML = ClockFace.html(ap[0] + ":" + ap[1]);
+      else node.querySelector(".alarm-clock").textContent = ap[0] + ":" + ap[1];
+
+      const label = a.label && a.label.trim() ? a.label : "闹钟";
+      node.querySelector(".alarm-name").textContent = label + " · " + repeatText(a);
+      node.querySelector(".alarm-tone").textContent = toneName(a.toneId) + " · " + durationText(a.duration);
+
+      const status = node.querySelector(".alarm-status");
+      if(a.snoozeUntil && a.snoozeUntil > nowMs){
+        status.textContent = "贪睡中 · " + fmtStamp(a.snoozeUntil) + " 再次响铃";
+      } else if(!a.enabled){
+        status.textContent = "已关闭";
+      } else {
+        const nxt = nextOccurrence(a, nowMs);
+        if(nxt){
+          status.textContent = "下次：" + describeWhen(a, nxt);
+        } else if(a.repeat === "once" || a.repeat === "specific_date"){
+          status.textContent = "已结束";
+        } else {
+          status.textContent = "没有可用的下一次提醒";
+        }
+      }
+
+      toggle.addEventListener("change", function(){ onToggleAlarm(a.id, toggle.checked); });
+      node.querySelector(".alarm-edit").addEventListener("click", function(){ openEditor(a.id); });
+      node.querySelector(".alarm-delete").addEventListener("click", function(){ askDelete(a.id); });
+      list.appendChild(node);
+    });
+  }
+
+  const enabledCount = alarms.filter(function(a){ return a.enabled; }).length;
+  el.alarmCount.textContent = enabledCount === alarms.length
+    ? alarms.length + " 个闹钟"
+    : alarms.length + " 个闹钟 · " + enabledCount + " 个启用";
+
+  const disabled = alarms.filter(function(a){ return !a.enabled; }).length;
+  el.clearDisabled.classList.toggle("hidden", disabled === 0);
+  el.clearDisabled.textContent = "清空未启用闹钟（" + disabled + "）";
+}
+
+function renderNext(){
+  const nowMs = nowWall();
+  let best = null, bestMs = Infinity;
+  alarms.forEach(function(a){
+    if(!a.enabled) return;
+    if(a.snoozeUntil && a.snoozeUntil > nowMs && a.snoozeUntil < bestMs){
+      best = a; bestMs = a.snoozeUntil;
+    }
+  });
+  let isSnooze = !!best;
+  if(!best){
+    alarms.forEach(function(a){
+      if(!a.enabled) return;
+      const nxt = nextOccurrence(a, nowMs);
+      if(nxt && nxt < bestMs){ best = a; bestMs = nxt; }
+    });
+  }
+
+  if(!best){
+    el.nextAlarmText.textContent = "暂无已启用闹钟";
+    el.countdownText.textContent = "添加一个闹钟开始使用";
+    el.stopSnoozeButton.classList.add("hidden");
+    return;
+  }
+
+  const name = best.label && best.label.trim() ? best.label : "闹钟";
+  const _title = fmtClock(+best.time.slice(0,2), +best.time.slice(3,5)) + " · " + name;
+  if(el.nextAlarmText.textContent !== _title) el.nextAlarmText.textContent = _title;
+
+  const diff = Math.max(0, bestMs - nowMs);
+  const total = Math.floor(diff / 1000);
+  const hh = Math.floor(total / 3600);
+  const mm = Math.floor((total % 3600) / 60);
+  const ss = total % 60;
+  let txt = "";
+  if(hh > 0) txt = hh + " 小时 " + pad(mm) + " 分 " + pad(ss) + " 秒";
+  else if(mm > 0) txt = mm + " 分 " + pad(ss) + " 秒";
+  else txt = ss + " 秒";
+  const line = (isSnooze ? "贪睡剩余 " : "距离响铃还有 ") + txt;
+  if(el.countdownText.textContent !== line) el.countdownText.textContent = line;
+
+  const hasSnooze = alarms.some(function(a){ return a.snoozeUntil && a.snoozeUntil > nowMs; });
+  el.stopSnoozeButton.classList.toggle("hidden", !hasSnooze);
+}
+
+/* =========================================================
+   4. 提示条
+   ========================================================= */
+let noticeTimer = null;
+function toast(msg){
+  el.noticeText.textContent = msg;
+  el.notice.classList.remove("hidden");
+  if(noticeTimer) clearTimeout(noticeTimer);
+  noticeTimer = setTimeout(function(){ el.notice.classList.add("hidden"); }, 3200);
+}
+
+/* =========================================================
+   5. 音频授权
+   ========================================================= */
+function checkAudioPermission(){
+  const c = Engine.ensure();
+  const ok = c && c.state === "running";
+  el.startupOverlay.classList.toggle("hidden", !!ok);
+  return !!ok;
+}
+
+async function requestAudio(){
+  const c = Engine.ensure();
+  if(!c) { toast("当前浏览器不支持音频播放"); return; }
+  try{ await c.resume(); }catch(e){}
+  if(c.state === "running"){
+    el.startupOverlay.classList.add("hidden");
+    el.authSuccess.classList.remove("hidden");
+    setTimeout(function(){ el.authSuccess.classList.add("hidden"); }, 2600);
+  } else {
+    toast("浏览器仍阻止音频，请点击页面后再试");
+  }
+}
+
+/* =========================================================
+   6. 闹钟开关 / 删除 / 清空
+   ========================================================= */
+function onToggleAlarm(id, on){
+  const a = alarms.find(function(x){ return x.id === id; });
+  if(!a) return;
+  if(on){
+    if(a.repeat === "specific_date"){
+      const t = a.date + " " + a.time;
+      const target = new Date(a.date + "T" + a.time).getTime();
+      if(isNaN(target) || target <= nowWall()){
+        toast("这个闹钟的指定日期时间已经过去，无法再启用，请重新编辑后再开启");
+        queueRenderList();
+        return;
+      }
+    }
+    a.enabled = true;
+    a.skipAt = null;
+    a.lastFireKey = null;
+    saveAlarms();
+    queueRenderList(); renderNext();
+    return;
+  }
+  /* 关闭 */
+  if(a.repeat === "once" || a.repeat === "specific_date"){
+    a.enabled = false; a.snoozeUntil = null; saveAlarms();
+    queueRenderList(); renderNext();
+    return;
+  }
+  pendingRepeatId = id;
+  document.getElementById("repeatAlarmChoiceText").textContent =
+    "“" + (a.label && a.label.trim() ? a.label : a.time.slice(0,5) + " 闹钟") + "”是重复闹钟。你可以只跳过下一次，也可以关闭整个闹钟。";
+  document.getElementById("repeatAlarmChoiceDialog").classList.remove("hidden");
+}
+
+function resolveRepeatChoice(mode){
+  document.getElementById("repeatAlarmChoiceDialog").classList.add("hidden");
+  const a = alarms.find(function(x){ return x.id === pendingRepeatId; });
+  pendingRepeatId = null;
+  if(!a) return;
+  if(mode === "skip"){
+    const nowMs = nowWall();
+    const nxt = nextOccurrence(a, nowMs);
+    if(nxt === null){
+      toast("当前这条闹钟没有可跳过的下一次提醒");
+      queueRenderList();
+      return;
+    }
+    a.skipAt = nxt;
+    a.enabled = true;
+    saveAlarms();
+    toast("已跳过 " + describeWhen(a, nxt) + " 的响铃");
+    queueRenderList(); renderNext();
+    return;
+  }
+  if(mode === "disable"){
+    a.enabled = false;
+    a.snoozeUntil = null;
+    a.skipAt = null;
+    saveAlarms();
+    queueRenderList(); renderNext();
+  }
+}
+
+function cancelRepeatChoice(){
+  document.getElementById("repeatAlarmChoiceDialog").classList.add("hidden");
+  const a = alarms.find(function(x){ return x.id === pendingRepeatId; });
+  pendingRepeatId = null;
+  if(a) a.enabled = true;
+  queueRenderList();
+}
+
+function askDelete(id){
+  const a = alarms.find(function(x){ return x.id === id; });
+  if(!a) return;
+  pendingDeleteId = id;
+  document.getElementById("deleteConfirmText").textContent =
+    "确认删除闹钟“" + (a.label && a.label.trim() ? a.label : a.time.slice(0,5)) + "”？删除后将无法恢复。";
+  document.getElementById("deleteConfirmDialog").classList.remove("hidden");
+}
+
+function doDelete(){
+  document.getElementById("deleteConfirmDialog").classList.add("hidden");
+  const id = pendingDeleteId; pendingDeleteId = null;
+  if(!id) return;
+  alarms = alarms.filter(function(a){ return a.id !== id; });
+  saveAlarms();
+  queueRenderList(); renderNext();
+  toast("闹钟已删除");
+}
+
+/* =========================================================
+   7. 编辑器
+   ========================================================= */
+const dlg = document.getElementById("alarmDialog");
+const form = document.getElementById("alarmForm");
+const timeInput = document.getElementById("alarmTime");
+const labelInput = document.getElementById("alarmLabel");
+const repeatSelect = document.getElementById("repeatModeSelect");
+const dateGroup = document.getElementById("specificDateGroup");
+const dateInput = document.getElementById("specificDateInput");
+const daysGroup = document.getElementById("repeatDaysGroup");
+const toneSelect = document.getElementById("ringtoneSelect");
+const durationSelect = document.getElementById("ringDurationSelect");
+const customInput = document.getElementById("customRingtoneInput");
+const previewBtn = document.getElementById("previewRingtoneButton");
+const stopPreviewBtn = document.getElementById("stopPreviewButton");
+const submitBtn = document.getElementById("submitAlarmButton");
+const dialogTitle = document.getElementById("alarmDialogTitle");
+
+let pickedDays = [];
+let previewing = false;
+
+function buildToneOptions(selected){
+  toneSelect.innerHTML = "";
+  const groups = {};
+  Engine.TONES.forEach(function(t){ (groups[t.group] = groups[t.group] || []).push(t); });
+  ["经典","劲爆","清新","舒缓","其它"].forEach(function(g){
+    if(!groups[g]) return;
+    const og = document.createElement("optgroup");
+    og.label = g;
+    groups[g].forEach(function(t){
+      const o = document.createElement("option");
+      o.value = t.id; o.textContent = t.name;
+      og.appendChild(o);
+    });
+    toneSelect.appendChild(og);
+  });
+  const customKeys = Object.keys(customTones);
+  if(customKeys.length){
+    const og = document.createElement("optgroup");
+    og.label = "自定义";
+    customKeys.forEach(function(k){
+      const o = document.createElement("option");
+      o.value = "custom:" + k;
+      o.textContent = "[自定义] " + customTones[k].name;
+      og.appendChild(o);
+    });
+    toneSelect.appendChild(og);
+  }
+  const add = document.createElement("option");
+  add.value = "__add__"; add.textContent = "添加自定义铃声…";
+  toneSelect.appendChild(add);
+
+  toneSelect.value = selected || "digital_beep";
+  if(!toneSelect.value) toneSelect.value = "digital_beep";
+}
+
+function setRepeatUI(){
+  const mode = repeatSelect.value;
+  dateGroup.classList.toggle("hidden", mode !== "specific_date");
+  daysGroup.classList.toggle("hidden", mode !== "custom");
+}
+
+function syncDayButtons(){
+  Array.prototype.forEach.call(daysGroup.querySelectorAll(".repeat-day-btn"), function(b){
+    b.classList.toggle("is-active", pickedDays.indexOf(+b.dataset.day) >= 0);
+  });
+}
+
+function openEditor(id){
+  editingId = id || null;
+  const a = id ? alarms.find(function(x){ return x.id === id; }) : null;
+  if(id && !a){ toast("要编辑的闹钟不存在，请重新操作"); return; }
+
+  dialogTitle.textContent = a ? "编辑闹钟" : "添加闹钟";
+  submitBtn.textContent = a ? "保存修改" : "添加闹钟";
+
+  if(a){
+    timeInput.value = a.time;
+    labelInput.value = a.label || "";
+    repeatSelect.value = a.repeat;
+    dateInput.value = a.date || "";
+    pickedDays = a.days.slice();
+    durationSelect.value = String(a.duration);
+    buildToneOptions(a.toneId);
+  } else {
+    const now = wallDate();
+    const plus5 = new Date(now.getTime() + 5*60000);
+    timeInput.value = fmtClock(plus5.getHours(), plus5.getMinutes(), 0);
+    labelInput.value = "";
+    repeatSelect.value = "once";
+    dateInput.value = dayKey(now);
+    pickedDays = [1,2,3,4,5];
+    durationSelect.value = "0";
+    buildToneOptions("digital_beep");
+  }
+  setRepeatUI(); syncDayButtons();
+  dlg.classList.remove("hidden");
+  setTimeout(function(){ timeInput.focus(); }, 60);
+}
+
+function closeEditor(){
+  dlg.classList.add("hidden");
+  stopPreview();
+  editingId = null;
+}
+
+function stopPreview(){
+  if(previewing){ Engine.stop(); previewing = false; }
+  previewBtn.classList.remove("hidden");
+  stopPreviewBtn.classList.add("hidden");
+}
+
+previewBtn.addEventListener("click", function(){
+  const v = toneSelect.value;
+  if(v === "__add__") return;
+  Engine.ensure();
+  if(v.indexOf("custom:") === 0){
+    const t = customTones[v.slice(7)];
+    if(!t){ toast("这个自定义铃声已丢失，请重新上传"); return; }
+    Engine.playCustom(t.dataUrl, 0.85, 0, null);
+  } else {
+    Engine.playPreset(v, 0.85, 0, null);
+  }
+  previewing = true;
+  previewBtn.classList.add("hidden");
+  stopPreviewBtn.classList.remove("hidden");
+});
+stopPreviewBtn.addEventListener("click", stopPreview);
+
+toneSelect.addEventListener("change", function(){
+  if(toneSelect.value === "__add__"){
+    toneSelect.value = toneSelect.dataset.prev || "digital_beep";
+    customInput.value = "";
+    customInput.click();
+    return;
+  }
+  toneSelect.dataset.prev = toneSelect.value;
+});
+
+customInput.addEventListener("change", function(){
+  const f = customInput.files && customInput.files[0];
+  if(!f) return;
+  if(f.size > MAX_CUSTOM_BYTES){ toast("自定义铃声请控制在 1.5MB 以内"); customInput.value = ""; return; }
+  const reader = new FileReader();
+  reader.onload = function(){
+    const key = "t" + Date.now().toString(36);
+    customTones[key] = { name: f.name.replace(/\.[^.]+$/, "").slice(0, 20), dataUrl: reader.result };
+    saveTones();
+    buildToneOptions("custom:" + key);
+    toneSelect.dataset.prev = "custom:" + key;
+    toast("已添加自定义铃声：" + customTones[key].name);
+  };
+  reader.onerror = function(){ toast("自定义铃声读取失败，请换一个文件重试"); };
+  reader.readAsDataURL(f);
+});
+
+repeatSelect.addEventListener("change", setRepeatUI);
+daysGroup.addEventListener("click", function(e){
+  const b = e.target.closest(".repeat-day-btn");
+  if(!b) return;
+  const d = +b.dataset.day;
+  const i = pickedDays.indexOf(d);
+  if(i >= 0) pickedDays.splice(i,1); else pickedDays.push(d);
+  syncDayButtons();
+});
+
+document.querySelectorAll(".quick-adjust-btn").forEach(function(b){
+  b.addEventListener("click", function(){
+    const w = wallDate();
+    const cur = timeInput.value || fmtClock(w.getHours(), w.getMinutes(), 0);
+    const p = cur.split(":");
+    let total = (+p[0])*3600 + (+p[1])*60 + (+(p[2]||0));
+    total += (+b.dataset.offsetMinutes) * 60;
+    total = ((total % 86400) + 86400) % 86400;
+    timeInput.value = fmtClock(Math.floor(total/3600), Math.floor((total%3600)/60), total%60);
+  });
+});
+
+form.addEventListener("submit", function(e){
+  e.preventDefault();
+  const time = timeInput.value;
+  if(!time){ toast("请先选择时间"); return; }
+  const normalized = time.length === 5 ? time + ":00" : time;
+  const mode = repeatSelect.value;
+
+  if(mode === "custom" && !pickedDays.length){ toast("自定义星期请至少选择一天"); return; }
+  if(mode === "specific_date"){
+    if(!dateInput.value){ toast("请选择指定日期"); return; }
+    const target = new Date(dateInput.value + "T" + normalized).getTime();
+    if(isNaN(target)){ toast("指定日期无效"); return; }
+    if(target <= nowWall()){ toast("这个闹钟的指定日期时间已经过去，请重新选择"); return; }
+  }
+
+  const toneVal = toneSelect.value === "__add__" ? "digital_beep" : toneSelect.value;
+
+  if(editingId){
+    const a = alarms.find(function(x){ return x.id === editingId; });
+    if(!a){ toast("要编辑的闹钟不存在，请重新操作"); closeEditor(); return; }
+    a.time = normalized;
+    a.label = labelInput.value.trim();
+    a.repeat = mode;
+    a.date = mode === "specific_date" ? dateInput.value : "";
+    a.days = mode === "custom" ? pickedDays.slice() : [];
+    a.toneId = toneVal;
+    a.duration = +durationSelect.value;
+    a.skipAt = null;
+    a.lastFireKey = null;
+    a.snoozeUntil = null;
+    a.enabled = true;
+    saveAlarms();
+    toast("闹钟已更新");
+  } else {
+    const a = normalizeAlarm({
+      id: uid(),
+      time: normalized,
+      label: labelInput.value.trim(),
+      repeat: mode,
+      date: mode === "specific_date" ? dateInput.value : "",
+      days: mode === "custom" ? pickedDays.slice() : [],
+      toneId: toneVal,
+      duration: +durationSelect.value,
+      enabled: true
+    });
+    alarms.push(a);
+    saveAlarms();
+    toast("闹钟已添加");
+  }
+  closeEditor();
+  queueRenderList(); renderNext();
+});
+
+document.getElementById("openAddDialogButton").addEventListener("click", function(){ Engine.ensure(); openEditor(null); });
+document.getElementById("cancelEditButton").addEventListener("click", closeEditor);
+dlg.addEventListener("click", function(e){ if(e.target === dlg) closeEditor(); });
+
+/* =========================================================
+   8. 响铃流程
+   ========================================================= */
+const ringOverlay = document.getElementById("ringOverlay");
+const ringTitle = document.getElementById("ringTitle");
+const ringTime = document.getElementById("ringTime");
+const ringDesc = document.getElementById("ringDescription");
+const ringSnooze = document.getElementById("snoozeButton");
+const ringDismiss = document.getElementById("dismissButton");
+
+function startRing(alarm, why){
+  ringing = alarm;
+  /* 黑屏倒计时期间响铃：让响铃层压上来，黑屏层保持在底层 */
+  document.getElementById("nightMode").classList.add("ringing");
+  ringTitle.textContent = why === "snooze" ? "贪睡结束" : "时间到了";
+  const rp = alarm.time.split(":");
+  ringTime.innerHTML = ClockFace.isSvg() ? ClockFace.html(rp[0] + ":" + rp[1]) : (rp[0] + ":" + rp[1]);
+  const name = alarm.label && alarm.label.trim() ? alarm.label : "闹钟提醒";
+  ringDesc.textContent = name + " · " + toneName(alarm.toneId);
+  ringOverlay.classList.remove("hidden");
+  const vol = 0.9;
+  const dur = alarm.duration || 0;
+  const onEnd = function(){ /* 响铃时长结束，保留界面等待处理 */ };
+  if(alarm.toneId.indexOf("custom:") === 0){
+    const t = customTones[alarm.toneId.slice(7)];
+    if(t) Engine.playCustom(t.dataUrl, vol, dur, onEnd);
+    else Engine.playPreset("digital_beep", vol, dur, onEnd);
+  } else {
+    Engine.playPreset(alarm.toneId, vol, dur, onEnd);
+  }
+  document.title = "⏰ " + alarm.time.slice(0,5) + " " + name;
+}
+
+function endRing(){
+  document.getElementById("nightMode").classList.remove("ringing");
+  Engine.stop();
+  ringOverlay.classList.add("hidden");
+  document.title = "在线闹钟 · 整点报时";
+  ringing = null;
+  setTimeout(drainRingQueue, 700);
+}
+
+ringDismiss.addEventListener("click", function(){
+  const a = ringing;
+  endRing();
+  if(!a) return;
+  a.snoozeUntil = null;
+  if(a.repeat === "once" || a.repeat === "specific_date") a.enabled = false;
+  saveAlarms();
+  queueRenderList(); renderNext();
+});
+
+ringSnooze.addEventListener("click", function(){
+  const a = ringing;
+  endRing();
+  if(!a) return;
+  a.snoozeUntil = nowWall() + SNOOZE_MIN*60000;
+  saveAlarms();
+  queueRenderList(); renderNext();
+  toast("已贪睡 " + SNOOZE_MIN + " 分钟");
+});
+
+document.getElementById("stopSnoozeButton").addEventListener("click", function(){
+  alarms.forEach(function(a){ a.snoozeUntil = null; });
+  saveAlarms();
+  queueRenderList(); renderNext();
+  toast("已停止贪睡");
+});
+
+/* =========================================================
+   9. 调度循环
+   ========================================================= */
+let ringQueue = [];
+/* 自适应容差：正常每秒调度时约 2 秒；页面被浏览器挂起后按实际间隔放宽，
+   这样「后台标签页错过几秒」仍能补响，「新增一个已过去的闹钟」不会立刻误响。 */
+let lastTickWall = 0;
+
+function fireTolerance(){
+  const wall = nowWall();
+  if(!lastTickWall) return 2000;
+  const gap = Math.max(0, wall - lastTickWall);
+  return Math.min(180000, gap + 2000);
+}
+
+function checkAlarms(){
+  const wall = nowWall();
+  const TOL = fireTolerance();
+
+  alarms.forEach(function(a){
+    if(!a.enabled) return;
+
+    /* 贪睡优先 */
+    if(a.snoozeUntil){
+      if(wall >= a.snoozeUntil){
+        a.snoozeUntil = null;
+        saveAlarms();
+        enqueueRing(a, "snooze");
+        queueRenderList();
+      }
+      return;
+    }
+    const due = dueOccurrence(a, wall, TOL);
+    if(due === null) return;
+    const key = a.id + "@" + due;
+    if(a.lastFireKey === key) return;
+    a.lastFireKey = key;
+    saveAlarms();
+    enqueueRing(a, "fire");
+    queueRenderList();
+  });
+}
+
+function enqueueRing(a, why){
+  if(ringing){ ringQueue.push({id:a.id, why:why}); return; }
+  startRing(a, why);
+}
+
+function drainRingQueue(){
+  if(ringing || !ringQueue.length) return;
+  const next = ringQueue.shift();
+  const a = alarms.find(function(x){ return x.id === next.id; });
+  if(!a || !a.enabled) { drainRingQueue(); return; }
+  startRing(a, next.why);
+}
+
+/* 整点报时 */
+function checkHourly(){
+  if(!config.hourly.enabled) return;
+  if(ringing) return;
+  const now = wallDate();
+  if(now.getMinutes() !== 0) return;
+  if(now.getSeconds() > 5) { prevHour = now.getHours(); return; }
+  const h = now.getHours();
+  if(prevHour === h) return;
+  prevHour = h;
+  if(config.hourly.hours.indexOf(h) < 0) return;
+  Engine.ensure();
+  Engine.playChime(clamp(config.hourly.volume/100, 0, 1));
+}
+
+/* =========================================================
+   10. 整点报时设置
+   ========================================================= */
+const chimeDlg = document.getElementById("hourlyChimeDialog");
+const chimeHours = document.getElementById("hourlyChimeHours");
+const volInput = document.getElementById("hourlyChimeVolumeInput");
+const volValue = document.getElementById("hourlyChimeVolumeValue");
+let chimePicked = [];
+
+function buildHourGrid(){
+  chimeHours.innerHTML = "";
+  for(let h=0;h<24;h++){
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "hour-cell";
+    b.dataset.hour = h;
+    b.textContent = pad(h) + "时";
+    b.addEventListener("click", function(){
+      const i = chimePicked.indexOf(h);
+      if(i >= 0) chimePicked.splice(i,1); else chimePicked.push(h);
+      paintHours();
+    });
+    chimeHours.appendChild(b);
+  }
+}
+function paintHours(){
+  Array.prototype.forEach.call(chimeHours.children, function(b){
+    b.classList.toggle("is-active", chimePicked.indexOf(+b.dataset.hour) >= 0);
+  });
+}
+
+function openChimeDialog(){
+  chimePicked = config.hourly.hours.slice();
+  if(!chimePicked.length) chimePicked = [];
+  volInput.value = String(config.hourly.volume);
+  volValue.textContent = config.hourly.volume + "%";
+  paintHours();
+  chimeDlg.classList.remove("hidden");
+}
+
+el.hourlyToggle.addEventListener("change", function(){
+  if(el.hourlyToggle.checked){
+    const ok = checkAudioPermission();
+    if(!ok) toast("浏览器尚未允许自动播放音频，请先点击授权后再开启整点报时");
+    if(!config.hourly.hours.length){
+      el.hourlyToggle.checked = false;
+      openChimeDialog();
+      return;
+    }
+    config.hourly.enabled = true;
+    saveConfig();
+    toast("整点报时已开启");
+  } else {
+    config.hourly.enabled = false;
+    saveConfig();
+    Engine.stop();
+    toast("整点报时已关闭");
+  }
+});
+
+buildHourGrid();
+volInput.addEventListener("input", function(){ volValue.textContent = volInput.value + "%"; });
+document.getElementById("selectAllHourlyChimeHoursButton").addEventListener("click", function(){
+  chimePicked = []; for(let i=0;i<24;i++) chimePicked.push(i); paintHours();
+});
+document.getElementById("clearHourlyChimeHoursButton").addEventListener("click", function(){ chimePicked = []; paintHours(); });
+
+document.getElementById("previewHourlyChimeButton").addEventListener("click", function(){
+  Engine.ensure();
+  Engine.playChime(clamp((+volInput.value)/100, 0, 1));
+  document.getElementById("previewHourlyChimeButton").classList.add("hidden");
+  document.getElementById("stopPreviewHourlyChimeButton").classList.remove("hidden");
+});
+document.getElementById("stopPreviewHourlyChimeButton").addEventListener("click", function(){
+  Engine.stop();
+  document.getElementById("stopPreviewHourlyChimeButton").classList.add("hidden");
+  document.getElementById("previewHourlyChimeButton").classList.remove("hidden");
+});
+document.getElementById("closeHourlyChimeDialogButton").addEventListener("click", function(){
+  chimeDlg.classList.add("hidden");
+  Engine.stop();
+  document.getElementById("stopPreviewHourlyChimeButton").classList.add("hidden");
+  document.getElementById("previewHourlyChimeButton").classList.remove("hidden");
+});
+document.getElementById("saveHourlyChimeSettingsButton").addEventListener("click", function(){
+  if(!chimePicked.length){ toast("请至少选择一个整点报时的小时"); return; }
+  config.hourly.hours = chimePicked.slice().sort(function(a,b){ return a-b; });
+  config.hourly.volume = +volInput.value;
+  config.hourly.enabled = true;
+  el.hourlyToggle.checked = true;
+  saveConfig();
+  chimeDlg.classList.add("hidden");
+  Engine.stop();
+  document.getElementById("stopPreviewHourlyChimeButton").classList.add("hidden");
+  document.getElementById("previewHourlyChimeButton").classList.remove("hidden");
+  toast("整点报时已开启，共 " + chimePicked.length + " 个时点");
+});
+
+/* =========================================================
+   11. 时间模式
+   ========================================================= */
+function switchMode(mode){
+  if(config.timeMode === mode) return;
+  const before = shiftMs();
+  config.timeMode = mode;
+  const after = shiftMs();
+  const delta = after - before;
+  if(delta !== 0){
+    alarms.forEach(function(a){
+      if(a.snoozeUntil) a.snoozeUntil += delta;
+      if(a.skipAt) a.skipAt += delta;
+    });
+    saveAlarms();
+  }
+  saveConfig();
+  prevHour = null; lastTickWall = 0;
+  clockSig = ""; renderClock();
+  renderNext(); listLastKey = ""; renderList(true);
+}
+
+document.getElementById("timeModeBeijing").addEventListener("change", function(){ if(this.checked) switchMode("beijing"); });
+document.getElementById("timeModeDevice").addEventListener("change", function(){ if(this.checked) switchMode("device"); });
+
+/* =========================================================
+   12. 其它交互
+   ========================================================= */
+el.clearDisabled.addEventListener("click", function(){
+  const disabled = alarms.filter(function(a){ return !a.enabled; });
+  if(!disabled.length) return;
+  alarms = alarms.filter(function(a){ return a.enabled; });
+  saveAlarms();
+  queueRenderList(); renderNext();
+  toast("已清空 " + disabled.length + " 个未启用闹钟");
+});
+
+document.getElementById("cancelDeleteButton").addEventListener("click", function(){
+  pendingDeleteId = null;
+  document.getElementById("deleteConfirmDialog").classList.add("hidden");
+  queueRenderList();
+});
+document.getElementById("confirmDeleteButton").addEventListener("click", doDelete);
+
+document.getElementById("cancelRepeatAlarmChoiceButton").addEventListener("click", cancelRepeatChoice);
+document.getElementById("skipNextRepeatAlarmButton").addEventListener("click", function(){ resolveRepeatChoice("skip"); });
+document.getElementById("disableRepeatAlarmButton").addEventListener("click", function(){ resolveRepeatChoice("disable"); });
+
+document.getElementById("activateAlarmButton").addEventListener("click", function(e){ e.stopPropagation(); requestAudio(); });
+document.addEventListener("pointerdown", function(){
+  if(el.startupOverlay.classList.contains("hidden")) return;
+  requestAudio();
+}, {passive:true});
+
+document.addEventListener("keydown", function(e){
+  if(e.key !== "Escape") return;
+  if(!ringOverlay.classList.contains("hidden")) { ringDismiss.click(); return; }
+  if(Night.isActive()){
+    e.preventDefault();
+    e.stopPropagation();
+    Night.exitAndSync();
+    return;
+  }
+  if(!dlg.classList.contains("hidden")) { closeEditor(); return; }
+  ["deleteConfirmDialog","repeatAlarmChoiceDialog","hourlyChimeDialog"].forEach(function(id){
+    const d = document.getElementById(id);
+    if(!d.classList.contains("hidden")) d.classList.add("hidden");
+  });
+  pendingDeleteId = null;
+  if(pendingRepeatId){ const a = alarms.find(function(x){ return x.id === pendingRepeatId; }); if(a) a.enabled = true; pendingRepeatId = null; queueRenderList(); }
+});
+
+
+/* =========================================================
+   14. 黑屏倒计时模式
+   ========================================================= */
+const Night = (function(){
+  const root = document.getElementById("nightMode");
+  const clockEl = document.getElementById("nightClock");
+  const subEl = document.getElementById("nightSub");
+  const targetEl = document.getElementById("nightTarget");
+  const labelEl = document.getElementById("nightLabel");
+  const footEl = document.getElementById("nightFoot");
+  const exitBtn = document.getElementById("nightExitButton");
+
+  let active = false;
+  let dim = false;
+  let tickTimer = null;
+  let lastText = "";
+
+  function fmtRemain(ms){
+    if(ms < 0) ms = 0;
+    const total = Math.floor(ms / 1000);
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const sec = total % 60;
+    return pad(h) + '<span class="colon">:</span>' + pad(m) + '<span class="colon">:</span>' + pad(sec);
+  }
+
+  function setDim(on){
+    dim = on;
+    root.classList.toggle("dim", on);
+    footEl.textContent = "按 Esc 退出";
+  }
+
+  /* 6 秒不动 → 隐藏按钮与提示，只剩数字（真·纯黑） */
+  const IDLE_HIDE_MS = 6000;
+  function checkIdle(){
+    if(!active) return;
+    if(!lastActivityAt) return;
+    if(Date.now() - lastActivityAt >= IDLE_HIDE_MS) root.classList.add("idle");
+  }
+
+  /* 12 秒无操作自动调暗，避免夜里屏幕太亮。用时间戳判断，避免定时器被打断 */
+  const DIM_AFTER_MS = 12000;
+  let lastActivityAt = 0;
+
+  function touch(){
+    lastActivityAt = Date.now();
+    if(root.classList.contains("idle")) root.classList.remove("idle");
+  }
+
+  function checkAutoDim(){
+    if(!active || dim) return;
+    if(!lastActivityAt) return;
+    if(Date.now() - lastActivityAt >= DIM_AFTER_MS) setDim(true);
+  }
+
+  function computeNext(){
+    const nowMs = nowWall();
+    let best = null, bestMs = Infinity;
+
+    /* 贪睡优先 —— 与主界面口径一致 */
+    alarms.forEach(function(a){
+      if(!a.enabled) return;
+      if(a.snoozeUntil && a.snoozeUntil > nowMs && a.snoozeUntil < bestMs){
+        best = a; bestMs = a.snoozeUntil;
+      }
+    });
+    let snooze = !!best;
+    if(!best){
+      alarms.forEach(function(a){
+        if(!a.enabled) return;
+        const nxt = nextOccurrence(a, nowMs);
+        if(nxt && nxt < bestMs){ best = a; bestMs = nxt; }
+      });
+    }
+    return { alarm: best, ms: bestMs, snooze: snooze, nowMs: nowMs };
+  }
+
+  /* 字号自适应：黑屏文案宽度随字型变化很大（点阵/手写特别宽），
+     先按满配字号渲染一帧，量实际宽度，超了就按比例缩回来。 */
+  let lastStyleKey = "";
+  let fitBase = 0;          // 未缩放时的基准字号
+
+  function autoFit(){
+    if(!clockEl) return;
+    const KEY = ClockFace.current();
+    const vw = window.innerWidth;
+    const limit = vw * 0.92;   // 最多占屏宽 92%
+
+    /* 字型变了就重算基准 */
+    if(KEY !== lastStyleKey){
+      lastStyleKey = KEY;
+      clockEl.style.setProperty("--night-fs", "");
+      fitBase = 0;
+    }
+
+    const cur = parseFloat(getComputedStyle(clockEl).fontSize) || 0;
+    if(!fitBase) fitBase = cur;
+
+    const w = clockEl.scrollWidth;
+    if(w > limit && cur > 0){
+      const next = Math.max(28, Math.floor(fitBase * limit / w));
+      clockEl.style.setProperty("--night-fs", next + "px");
+    }
+  }
+
+  function paint(){
+    if(!active) return;
+    checkAutoDim();
+    checkIdle();
+
+    const r = computeNext();
+
+    if(!r.alarm){
+      root.classList.add("empty");
+      const key = "none|" + ClockFace.current();
+      if(lastText !== key){
+        lastText = key;
+        clockEl.innerHTML = ClockFace.isSvg()
+          ? ClockFace.html("--:--:--")
+          : "--<span class=\"colon\">:</span>--<span class=\"colon\">:</span>--";
+        labelEl.textContent = "No Alarm";
+        subEl.textContent = "暂无已启用闹钟";
+        targetEl.textContent = "按 Esc 返回主界面添加";
+      }
+      return;
+    }
+    root.classList.remove("empty");
+
+    const remain = Math.max(0, r.ms - r.nowMs);
+    if(ClockFace.isSvg()){
+      const tt = Math.floor(remain/1000);
+      const hh = Math.floor(tt/3600), mm2 = Math.floor((tt%3600)/60), ss2 = tt%60;
+      clockEl.innerHTML = ClockFace.html(pad(hh) + ":" + pad(mm2) + ":" + pad(ss2));
+    } else {
+      clockEl.innerHTML = fmtRemain(remain);
+    }
+    autoFit();
+
+    const name = r.alarm.label && r.alarm.label.trim() ? r.alarm.label : "闹钟";
+    const hm = r.alarm.time.slice(0,5);
+    const label = r.snooze ? "Snoozing" : "Next Alarm";
+    const sub = (r.snooze ? "贪睡中 · " : "") + hm + "  " + name;
+    const tgt = describeWhen(r.alarm, r.ms) + " 响铃";
+
+    /* 签名比对，避免每秒重写 DOM 造成闪烁 */
+    const sig = label + "|" + sub + "|" + tgt;
+    if(sig !== lastText){
+      lastText = sig;
+      labelEl.textContent = label;
+      subEl.textContent = sub;
+      targetEl.textContent = tgt;
+    }
+  }
+
+  function enter(){
+    if(active) return;
+    active = true;
+    lastText = "";
+    lastStyleKey = "";
+    fitBase = 0;
+    clockEl.style.setProperty("--night-fs", "");
+    document.body.classList.add("night-active");
+    root.classList.remove("hidden");
+    // 先移除 hidden 再加 show，确保过渡生效
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){ root.classList.add("show"); }); });
+    setDim(false);
+    touch();
+    paint();
+    if(tickTimer) clearInterval(tickTimer);
+    tickTimer = setInterval(paint, 500);
+
+    /* 只有纯浏览器才用 HTML 全屏。
+       桌面版由主进程 setFullScreen 控制窗口，再叠加一层 HTML 全屏会打架：
+       第一次 Esc 被 Chromium 吃掉退出 HTML 全屏，我们的处理没跑到 → 要按两次。 */
+    const isDesktop = !!(window.desktop && window.desktop.isDesktop);
+    if(!isDesktop && document.fullscreenEnabled && !document.fullscreenElement){
+      const p = document.documentElement.requestFullscreen({navigationUI:"hide"});
+      if(p && p.catch) p.catch(function(){});
+    }
+    /* 尝试锁住横竖屏（手机浏览器） */
+    try{
+      if(screen.orientation && screen.orientation.lock) screen.orientation.lock("portrait").catch(function(){});
+    }catch(e){}
+  }
+
+  function exit(){
+    if(!active) return;
+    active = false;
+    document.body.classList.remove("night-active");
+    root.classList.remove("show");
+    root.classList.remove("idle");
+    setTimeout(function(){
+      if(!active) root.classList.add("hidden");
+    }, 460);
+    if(tickTimer){ clearInterval(tickTimer); tickTimer = null; }
+    lastActivityAt = 0;
+    const isDesktop2 = !!(window.desktop && window.desktop.isDesktop);
+    if(!isDesktop2 && document.fullscreenElement && document.exitFullscreen){
+      const p = document.exitFullscreen();
+      if(p && p.catch) p.catch(function(){});
+    }
+    try{
+      if(screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
+    }catch(e){}
+    clockSig = "";   // 让主界面时钟立刻重绘
+    renderClock();
+  }
+
+  /* 点击：调暗 / 恢复；任意操作重置自动调暗计时 */
+  root.addEventListener("click", function(e){
+    if(e.target.closest("#nightExitButton")) return;
+    setDim(!dim);
+    touch();
+  });
+  root.addEventListener("pointermove", touch, {passive:true});
+  root.addEventListener("wheel", touch, {passive:true});
+  exitBtn.addEventListener("click", function(e){
+    e.stopPropagation();
+    exit();
+    if(window.desktop && window.desktop.nightExit) window.desktop.nightExit();
+  });
+
+  function exitAndSync(){
+    if(!active) return;
+    exit();
+    if(window.desktop && window.desktop.nightExit) window.desktop.nightExit();
+  }
+
+  window.addEventListener("resize", function(){
+    if(active){ lastStyleKey = ""; fitBase = 0; autoFit(); }
+  }, {passive:true});
+
+  return {
+    enter: enter, exit: exit, exitAndSync: exitAndSync,
+    isActive: function(){ return active; },
+    paint: paint,
+    resetCache: function(){
+      lastText = "";
+      lastStyleKey = "";
+      fitBase = 0;
+      if(clockEl) clockEl.style.setProperty("--night-fs", "");
+    }
+  };
+})();
+
+document.getElementById("nightModeButton").addEventListener("click", function(){
+  Engine.ensure();
+  Night.enter();
+  if(window.desktop && window.desktop.nightEnter) window.desktop.nightEnter();
+});
+
+/* 响铃时：黑屏模式要让位于响铃层，停止后自动回到黑屏倒计时 */
+
+/* =========================================================
+   13. 启动
+   ========================================================= */
+function boot(){
+  loadAll();
+  ClockFace.init();
+  ClockFace.apply(config.clockStyle, true);
+  document.body.setAttribute("data-cs", config.clockStyle);
+
+  if(config.timeMode === "beijing") document.getElementById("timeModeBeijing").checked = true;
+  else document.getElementById("timeModeDevice").checked = true;
+
+  el.hourlyToggle.checked = config.hourly.enabled && config.hourly.hours.length > 0;
+
+  renderClock();
+  renderList();
+  renderNext();
+  checkAudioPermission();
+  if(!Engine.state || Engine.state() !== "running"){
+    setTimeout(checkAudioPermission, 400);
+  }
+
+  startTicker();
+}
+
+/* =========================================================
+   省电调度器
+   - 每秒只跑一次，且对齐到系统秒边界，避免空转
+   - 窗口最小化 / 被遮住时：不碰 DOM，只做闹钟判定
+   - 用 setTimeout 自校正，防止漂移累积
+   ========================================================= */
+let tickTimer = null;
+let ticking = false;
+let idleMode = false;   /* 窗口不可见 → 降低 tick 频率 */
+let tickCount = 0;
+
+/* 桌面壳可以主动告知窗口是否可见（比 document.hidden 更可靠） */
+if(window.desktop && window.desktop.onVisibility){
+  window.desktop.onVisibility(function(visible){
+    idleMode = !visible;
+    if(visible){
+      lastTickWall = 0;
+      alarmTick(false);
+      lastTickWall = nowWall();
+      clockSig = "";
+      renderClock();
+      listLastKey = "";
+      renderList(true);
+      renderNext();
+    }
+  });
+}
+
+function alarmTick(fullRender){
+  const wall = nowWall();
+  checkAlarms();
+  lastTickWall = wall;
+  checkHourly();
+
+  if(fullRender){
+    renderClock();
+    /* 倒计时 5 秒刷一次，减少无谓重排 */
+    if((tickCount++ % 5) === 0) renderNext();
+    if(Night.isActive()) Night.paint();
+  }
+}
+
+function scheduleNextTick(){
+  if(tickTimer) clearTimeout(tickTimer);
+  /* 可见时对齐整秒（误差 <30ms）；不可见时 2 秒一跳，CPU 占用降到 1/2 */
+  const now = Date.now();
+  const step = idleMode ? 3000 : 1000;
+  const delay = step - (now % step) + 8;
+  tickTimer = setTimeout(runTick, delay);
+}
+
+function runTick(){
+  if(ticking) return;
+  ticking = true;
+  try{
+    /* 不可见时只做判定，完全不碰 DOM */
+    const visible = !document.hidden && !idleMode;
+    alarmTick(visible);
+  } finally {
+    ticking = false;
+  }
+  scheduleNextTick();
+}
+
+function startTicker(){
+  if(!tickTimer) scheduleNextTick();
+}
+
+/* 页面/窗口重新可见：立刻补一次全量刷新（含漏掉的响铃） */
+document.addEventListener("visibilitychange", function(){
+  if(!document.hidden){
+    lastTickWall = 0;
+    alarmTick(false);
+    lastTickWall = nowWall();
+    clockSig = "";
+    renderClock();
+    listLastKey = "";
+    renderList(true);
+    renderNext();
+  }
+});
+
+/* 30 秒刷新一次列表的状态文案（下次响铃时间会变） */
+setInterval(function(){
+  if(document.hidden) return;
+  queueRenderList();
+}, 30000);
+
+/* 系统从休眠恢复：补一次判定 */
+if(window.addEventListener){
+  window.addEventListener("focus", function(){
+    if(!document.hidden){
+      lastTickWall = 0;
+      alarmTick(true);
+      lastTickWall = nowWall();
+    }
+  });
+}
+boot();
+})();
+</script>
+</body>
+</html>
