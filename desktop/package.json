@@ -1,0 +1,57 @@
+{
+  "name": "alarm-clock-desktop",
+  "version": "1.0.0",
+  "description": "桌面闹钟 - 多闹钟 / 贪睡 / 整点报时",
+  "main": "main.js",
+  "author": "裴",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win portable",
+    "dist:installer": "electron-builder --win nsis"
+  },
+  "devDependencies": {
+    "electron": "^32.2.7",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.peicheng.yl.naobiao",
+    "productName": "桌面闹钟",
+    "copyright": "Copyright © 2026",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "app/**/*",
+      "build/icon.ico"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "artifactName": "桌面闹钟-${version}-绿色版.${ext}"
+    },
+    "portable": {
+      "artifactName": "桌面闹钟-${version}-绿色版.${ext}",
+      "requestExecutionLevel": "user"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "桌面闹钟",
+      "artifactName": "桌面闹钟-${version}-安装程序.${ext}",
+      "deleteAppDataOnUninstall": false
+    },
+    "compression": "maximum"
+  }
+}
