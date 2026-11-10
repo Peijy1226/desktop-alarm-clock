@@ -4,7 +4,20 @@
 
 网页版单文件，桌面版基于 Electron。铃声全部实时合成，不含任何音频文件。
 
-![截图待补充](docs/screenshot.png)
+![主界面](docs/screenshot.png)
+
+<details>
+<summary>更多截图</summary>
+
+**黑屏倒计时**
+
+![黑屏倒计时](docs/screenshot-night.png)
+
+**添加闹钟**
+
+![添加闹钟](docs/screenshot-editor.png)
+
+</details>
 
 ## 功能
 

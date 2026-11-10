@@ -693,7 +693,7 @@ body.desktop{padding-top:var(--titlebar-h)}
         </svg>
       </div>
       <div>
-        <h1 class="brand-title">在线闹钟</h1>
+        <h1 class="brand-title">桌面闹钟</h1>
         <p class="brand-sub">支持多个闹钟、贪睡提醒、整点报时、倒计时与北京时间切换</p>
       </div>
     </div>
@@ -1080,7 +1080,7 @@ body.desktop{padding-top:var(--titlebar-h)}
 
 <script>
 /* =========================================================
-   在线闹钟 —— 全部逻辑
+   桌面闹钟 —— 全部逻辑
    ========================================================= */
 (function(){
 "use strict";
@@ -2459,7 +2459,7 @@ function endRing(){
   document.getElementById("nightMode").classList.remove("ringing");
   Engine.stop();
   ringOverlay.classList.add("hidden");
-  document.title = "在线闹钟 · 整点报时";
+  document.title = "桌面闹钟";
   ringing = null;
   setTimeout(drainRingQueue, 700);
 }
