@@ -33,14 +33,16 @@
       "target": [
         {
           "target": "portable",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "build/icon.ico",
-      "artifactName": "桌面闹钟-${version}-绿色版.${ext}"
+      "artifactName": "DesktopAlarmClock-${version}-${arch}.${ext}"
     },
     "portable": {
-      "artifactName": "桌面闹钟-${version}-绿色版.${ext}",
+      "artifactName": "DesktopAlarmClock-${version}-portable.${ext}",
       "requestExecutionLevel": "user"
     },
     "nsis": {
@@ -49,9 +51,13 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "桌面闹钟",
-      "artifactName": "桌面闹钟-${version}-安装程序.${ext}",
+      "artifactName": "DesktopAlarmClock-${version}-setup.${ext}",
       "deleteAppDataOnUninstall": false
     },
     "compression": "maximum"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Peijy1226/desktop-alarm-clock.git"
   }
 }

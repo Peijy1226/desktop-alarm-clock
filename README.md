@@ -58,7 +58,7 @@
 
 ### 直接下载
 
-到 [Releases](../../releases) 下载：
+到 [Releases](https://github.com/Peijy1226/desktop-alarm-clock/releases) 下载：
 
 | 文件 | 说明 |
 |---|---|
