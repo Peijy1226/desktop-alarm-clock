@@ -3,11 +3,13 @@
 [![release](https://img.shields.io/github/v/release/Peijy1226/desktop-alarm-clock)](https://github.com/Peijy1226/desktop-alarm-clock/releases)
 [![license](https://img.shields.io/github/license/Peijy1226/desktop-alarm-clock)](LICENSE)
 
+**中文** · [English](README.en.md)
+
 一个不联网的 Windows 桌面闹钟。关掉窗口还在后台待命，到点强制弹到最前。
 
 **[在线试用网页版 →](https://peijy1226.github.io/desktop-alarm-clock/)**（不用装任何东西，浏览器里直接跑）
 
-![主界面](docs/screenshot.png)
+![演示](docs/demo.gif)
 
 ## 装一个
 
@@ -25,8 +27,6 @@
 **1. 黑屏倒计时**
 
 晚上想知道还能睡多久，开电脑看时间太刺眼。这个模式铺满全屏纯黑，只留红色数字，12 秒不动自动再暗一档。放床头看刚好。
-
-![黑屏倒计时](docs/screenshot-night.png)
 
 数字随屏幕宽度自适应，点左上角能就地换字型。`Esc` 退出，窗口尺寸原样还回来。
 
