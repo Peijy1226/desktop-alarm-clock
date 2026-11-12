@@ -5,6 +5,8 @@
 
 一个不联网的 Windows 桌面闹钟。关掉窗口还在后台待命，到点强制弹到最前。
 
+**[在线试用网页版 →](https://peijy1226.github.io/desktop-alarm-clock/)**（不用装任何东西，浏览器里直接跑）
+
 ![主界面](docs/screenshot.png)
 
 ## 装一个
@@ -14,7 +16,9 @@
 - `DesktopAlarmClock-x.x.x-setup.exe` —— 装到系统里，带开始菜单和桌面快捷方式
 - `DesktopAlarmClock-x.x.x-portable.exe` —— 免安装，放哪都能跑
 
-两个都是单文件，不用装运行库。仓库里也有 `index.html`，用浏览器直接打开就是网页版。
+两个都是单文件，不用装运行库。
+
+不想装软件的话，[网页版在这](https://peijy1226.github.io/desktop-alarm-clock/)，用浏览器直接开。或者把仓库里的 `index.html` 下载下来双击也行。
 
 ## 三件做得比较认真的事
 
