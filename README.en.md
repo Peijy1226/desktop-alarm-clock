@@ -1,59 +1,87 @@
 # Desktop Alarm Clock
 
+[![release](https://img.shields.io/github/v/release/Peijy1226/desktop-alarm-clock)](https://github.com/Peijy1226/desktop-alarm-clock/releases)
+[![license](https://img.shields.io/github/license/Peijy1226/desktop-alarm-clock)](LICENSE)
+
 [中文](README.md) · **English**
 
-A Windows alarm clock that never touches the network. Close the window and it keeps running in the tray; when an alarm fires it forces itself to the front.
+A Windows alarm clock that never touches the network. Close the window and it stays in the tray; when an alarm fires it comes out on its own.
 
-**[Try the web version →](https://peijy1226.github.io/desktop-alarm-clock/)** (nothing to install, runs in the browser)
+**[Try it online →](https://peijy1226.github.io/desktop-alarm-clock/)** nothing to install, runs in the browser
 
 ![Demo](docs/demo.gif)
 
 ## Install
 
-Grab a build from [Releases](https://github.com/Peijy1226/desktop-alarm-clock/releases) and double-click:
+Two exe files in [Releases](https://github.com/Peijy1226/desktop-alarm-clock/releases), just double-click:
 
-- `DesktopAlarmClock-x.x.x-setup.exe` — installs with Start menu and desktop shortcuts
-- `DesktopAlarmClock-x.x.x-portable.exe` — no install, runs from anywhere
+`-setup.exe` installs with Start menu and desktop shortcuts; `-portable.exe` is no-install and runs from a USB stick too.
 
-Both are single files, no runtime needed.
+Both are single files. No Node.js, no runtime libraries. It's 76MB, almost all of that being Electron itself.
 
-## Three things worth a closer look
+If you'd rather not install anything, the [web version](https://peijy1226.github.io/desktop-alarm-clock/) opens and runs, or download `index.html` from the repo and double-click that.
 
-**1. The blackout countdown**
+## Why this exists
 
-Late at night you just want to know how long until you can sleep. Opening a laptop to check the time is blinding. This mode covers the whole screen in pure black and leaves only red digits, dimming one more step after 12 seconds idle.
+I wanted to know how long until I could sleep without lighting up the room. Checking a laptop screen at 2am is blinding, and reaching for my phone wakes me up completely. I just wanted a pure black screen with nothing but digits.
 
-The digits scale to fit the screen width, you can switch typefaces from the top-left corner, and `Esc` exits with the window restored to exactly its previous size.
+So the blackout countdown got the most attention, and everything else grew around it.
 
-**2. Nine digit typefaces that actually match in size**
+Full screen, pure black, red digits, one more dim step after 12 seconds of no input — dim enough to read, not enough to light the room. The digits scale down with screen width so no typeface gets clipped on the right. Click the top-left corner to switch typefaces in place. `Esc` goes back, and the window returns to exactly its previous size.
 
-A common problem with swappable numerals: they come out wildly different sizes, because typefaces are drawn at different heights — Impact sits low, seven-segment fills the full em box. Here each typeface is rendered to a canvas, scanned row by row to find the real pixel height, and the font size is back-calculated from that. Measured across all nine, the rendered heights differ by no more than 2 pixels.
+## Typefaces
 
-The seven-segment and dot-matrix options aren't fonts at all — they're drawn as SVG, so they look identical on every machine.
+Nine of them. There was only one at first; it kept growing.
 
-**3. Chimes: 17 synthesized, plus room for your own**
+Modern sans, sci-fi HUD, terminal mono, thin minimalist, classic serif, handwriting, heavy display, plus two that aren't fonts at all — seven-segment and dot-matrix, drawn as SVG, identical on every machine.
 
-The 17 built-in sounds are all built live with Web Audio — oscillators and envelopes, no samples. The program ships zero mp3 files, which is why it installs at 76MB (nearly all of that being Electron).
+The annoyance is that switching typefaces makes the digits change size. Different fonts draw numerals at completely different heights — Impact sits low, seven-segment fills the whole em box. Same font size, visually almost double.
 
-For your own music, just drop a file in. **One track, up to 100MB** — enough for lossless FLAC or a high-resolution master. MP3, WAV, FLAC, AAC, M4A, OGG and OPUS all work. Unsupported formats are still accepted and stored; if the browser can't decode one, you're told right away and it falls back to the default chime instead of ringing silent.
+The fix was to render each typeface to a canvas, scan it row by row to find the actual pixel height, and back-calculate the font size from that. All nine now land within 2 pixels of each other, which the eye can't catch.
 
-Audio is stored as raw binary in a local database — no transcoding, no compression. A 95MB file lands in about a second and plays without stutter.
+`measureText().actualBoundingBoxAscent` is useless for this. For handwriting fonts it was off by a third.
 
-## Everything else
+## Chimes
 
-Alarms support six repeat modes: once, daily, a specific date, weekdays, Chinese public holidays, or any set of weekdays. A repeating alarm you don't want tomorrow can be skipped just once, without turning it off and back on.
+17 built in, all synthesized live with Web Audio — oscillators and envelopes, not a single audio file in the program. That keeps the install small and makes switching instant.
 
-The desktop build also keeps the window in the tray on close, starts with Windows, blocks sleep while alarms are pending, and flashes the taskbar on fire. All data stays in `%APPDATA%`; not a byte leaves the machine.
+They're grouped into five categories: classic, punchy, fresh, gentle, and other. Bright ones are bright, muffled ones are muffled — all tuned by hand.
 
-## One deliberate trade-off
+You can also use your own music, **up to 100MB per file** — a full lossless track fits. MP3, WAV, FLAC, AAC, M4A, OGG and OPUS all work. Audio is stored as-is, no transcoding or compression. A 95MB WAV lands in about a second and plays without stutter.
 
-The app **disables GPU acceleration**.
+Uploads get verified for decodability right away, so an alarm never rings silent.
 
-NVIDIA, Steam, and Discord all draw their FPS overlays by injecting into the GPU pipeline, which no amount of window stacking can cover. With no GPU surface to inject into, they have nowhere to draw — at the cost of compositing the UI on the CPU.
+## Alarms
 
-The measured cost is small: about 1.7% of one core while the window is open, roughly 2% minimized, and around 400MB of memory. That memory figure is Electron's floor and has nothing to do with the GPU setting.
+Six repeat modes: once, daily, a specific date, weekdays, Chinese public holidays, or any set of weekdays.
 
-## Build from source
+A repeating alarm you don't want tomorrow can be skipped just once, without turning it off and back on.
+
+Time down to the second, with labels, 5-minute snooze, and ring duration (forever, 10s, 30s, 1m, 5m, 10m).
+
+Optional hourly chime: pick any of the 24 hours, with its own volume.
+
+## What the desktop build adds
+
+**Closing the window doesn't quit.** It goes to the tray and alarms still fire. The web version needs the tab open, which is a big difference.
+
+**Starts with Windows.** Tick it once and forget it.
+
+**Blocks sleep while alarms are pending.** This one matters — a laptop that sleeps won't wake you.
+
+**Forces itself to the front** when an alarm fires, plus taskbar flash and a system notification. It interrupts you mid-typing, which is what an alarm should do.
+
+Data stays in `%APPDATA%`, nothing leaves the machine. Uninstalling doesn't delete it, so a reinstall keeps your alarms.
+
+## GPU acceleration is off
+
+NVIDIA, Steam and Discord draw their FPS overlays by injecting into the GPU pipeline. No amount of window stacking covers them — they're not windows.
+
+So the app doesn't create a GPU surface at all. Nothing to inject into, nothing to draw over. The UI composites on the CPU instead.
+
+Measured: about 1.7% of one core with the window open, ~2% minimized, around 400MB of memory. That memory figure is Electron's floor and has nothing to do with this setting. No fan spin, no noticeable battery drain.
+
+## Build it yourself
 
 ```bash
 cd desktop
@@ -71,29 +99,25 @@ npx electron-builder --win nsis portable --x64
 
 Output lands in `desktop/release/`.
 
-## Where the code lives
+## Code layout
 
 ```
 index.html            the entire web version, single file
 desktop/main.js       Electron main process: window, tray, notifications, power
 desktop/preload.js    the narrow API exposed to the renderer
 desktop/app/          desktop page (generated, don't edit)
-desktop/build/        icon generation and web-to-desktop conversion
+desktop/build/        icon generation + web-to-desktop conversion
 ```
 
-`desktop/app/index.html` is produced from the root `index.html`, so after changing the web version run:
+Only edit the root `index.html`. After changing it, sync:
 
 ```bash
 cd desktop && python build/make_desktop_app.py
 ```
 
-The conversion script does four things: applies the custom title bar, removes the browser audio prompt, reports ring events to the main process, and injects the desktop settings panel.
+The script does four things: applies the custom title bar, removes the browser audio prompt, reports ring events to the main process, and injects the desktop settings panel.
 
-Problems encountered along the way are written up separately in [NOTES.md](NOTES.md) — fullscreen sizing, SVG fills, and font measurement are the ones that keep coming back.
-
-## Known rough edges
-
-If autostart is off, alarms won't fire after a reboot — the program isn't running. Deep sleep is also silent, though alarms missed during sleep are caught up within 3 minutes of waking. The Chinese holiday table is hand-coded for 2026 and will need updating next year.
+Notes on problems hit along the way are in [NOTES.md](NOTES.md) — fullscreen sizing, SVG fills, font measurement, and large-file storage are the ones that keep coming back.
 
 ## License
 
