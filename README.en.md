@@ -31,9 +31,13 @@ A common problem with swappable numerals: they come out wildly different sizes, 
 
 The seven-segment and dot-matrix options aren't fonts at all — they're drawn as SVG, so they look identical on every machine.
 
-**3. Every chime is synthesized**
+**3. Chimes: 17 synthesized, plus room for your own**
 
-All 17 sounds are built live with Web Audio — oscillators and envelopes, no samples. The program contains zero mp3 files, which is why it installs at 76MB (nearly all of that being Electron) and why switching chimes is instant.
+The 17 built-in sounds are all built live with Web Audio — oscillators and envelopes, no samples. The program ships zero mp3 files, which is why it installs at 76MB (nearly all of that being Electron).
+
+For your own music, just drop a file in. **One track, up to 100MB** — enough for lossless FLAC or a high-resolution master. MP3, WAV, FLAC, AAC, M4A, OGG and OPUS all work. Unsupported formats are still accepted and stored; if the browser can't decode one, you're told right away and it falls back to the default chime instead of ringing silent.
+
+Audio is stored as raw binary in a local database — no transcoding, no compression. A 95MB file lands in about a second and plays without stutter.
 
 ## Everything else
 

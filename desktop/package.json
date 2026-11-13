@@ -1,6 +1,6 @@
 {
   "name": "alarm-clock-desktop",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "桌面闹钟 - 多闹钟 / 贪睡 / 整点报时",
   "main": "main.js",
   "author": "裴",

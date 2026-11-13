@@ -219,6 +219,7 @@ body::before{
 .alarm-copy{min-width:0;display:flex;flex-direction:column;gap:2px}
 .alarm-name{margin:0;font-size:14px;font-weight:600;color:#d6e6c8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .alarm-tone{margin:0;font-size:11.5px;color:var(--muted)}
+.field-hint{display:block;margin-top:5px;font-size:11px;color:#6b7d5e;line-height:1.5}
 .alarm-status{margin:0;font-size:11.5px;color:var(--green-2);font-weight:600}
 .alarm-item.is-off .alarm-status{color:#5e6d52;font-weight:500}
 .alarm-actions{display:flex;gap:8px;flex:none}
@@ -775,9 +776,11 @@ html::-webkit-scrollbar,body::-webkit-scrollbar{width:0;height:0;display:none}
           <select id="ringtoneSelect"></select>
           <button type="button" class="secondary-btn" id="previewRingtoneButton">试听</button>
           <button type="button" class="ghost-btn hidden" id="stopPreviewButton">停止</button>
+          <button type="button" class="ghost-btn hidden" id="deleteToneButton">删除</button>
         </div>
+        <span class="field-hint" id="toneHint">支持 MP3 / WAV / FLAC / AAC / M4A / OGG / OPUS，最大 100MB</span>
       </label>
-      <input type="file" id="customRingtoneInput" accept="audio/*" class="hidden">
+      <input type="file" id="customRingtoneInput" class="hidden">
 
       <label>
         <span>响铃时长</span>
@@ -926,7 +929,11 @@ const LS_ALARMS = "naobiao.alarms.v1";
 const LS_CONFIG = "naobiao.config.v1";
 const LS_TONES  = "naobiao.customTones.v1";
 const SNOOZE_MIN = 5;
-const MAX_CUSTOM_BYTES = 1.5 * 1024 * 1024;
+/* 自定义铃声大小上限 100MB —— 覆盖市面上任何单曲（无损 FLAC 通常 25-40MB，
+   极端的高采样率母带也很少超过 80MB）。存储走 IndexedDB（Blob），
+   localStorage 只存索引，不吃 5MB 配额。 */
+const MAX_CUSTOM_BYTES = 100 * 1024 * 1024;
+const AUDIO_ACCEPT = "audio/*,.mp3,.wav,.flac,.aac,.m4a,.ogg,.oga,.opus,.wma,.aiff,.aif,.ape,.alac,.amr,.mid,.midi,.weba";
 
 const WEEK_CN = ["日","一","二","三","四","五","六"];
 
@@ -1517,16 +1524,30 @@ const Engine = (function(){
     pump();
   }
 
-  /* 播放自定义音频 */
-  function playCustom(dataUrl, volume, duration, onEnd){
+  /* 播放自定义音频。src 可以是 object URL 或 data URL。
+     浏览器解不了的格式（如 FLAC 在部分老版本、APE、WMA）会触发 error，
+     此时回落到内置提示音，避免"闹钟到点却没声音"。 */
+  function playCustom(src, volume, duration, onEnd){
     hardStop();
+    if(!src){ if(typeof onEnd === "function") onEnd(); return; }
     const el = new Audio();
-    el.src = dataUrl;
+    el.preload = "auto";
     el.loop = true;
     el.volume = clamp(volume, 0, 1);
     customEl = el;
     stopped = false;
-    el.play().catch(function(){});
+
+    el.addEventListener("error", function(){
+      if(customEl !== el) return;
+      try{ el.pause(); }catch(e){}
+      customEl = null;
+      /* 回落到内置提示音，保证一定会响 */
+      playPreset("digital_beep", volume, duration, onEnd);
+    });
+
+    el.src = src;
+    el.play().catch(function(){ /* 自动播放被拦，等用户交互后再试 */ });
+
     if(duration > 0){
       setTimeout(function(){
         if(customEl === el){
@@ -1563,7 +1584,7 @@ const Engine = (function(){
    ========================================================= */
 let alarms = [];
 let config = { timeMode:"device", clockStyle:"default", hourly:{ enabled:false, hours:[], volume:95 } };
-let customTones = {};      // id -> { name, dataUrl }
+let customTones = {};      // id -> { name, file, size, type, key }（音频本体在 IndexedDB）
 let editingId = null;
 let pendingDeleteId = null;
 let pendingRepeatId = null;
@@ -1596,7 +1617,110 @@ function fmtStamp(ms){
 /* ---------- 持久化 ---------- */
 function saveAlarms(){ try{ localStorage.setItem(LS_ALARMS, JSON.stringify(alarms)); }catch(e){ toast("本地存储空间不足，保存失败"); } }
 function saveConfig(){ try{ localStorage.setItem(LS_CONFIG, JSON.stringify(config)); }catch(e){} }
-function saveTones(){ try{ localStorage.setItem(LS_TONES, JSON.stringify(customTones)); }catch(e){} }
+/* ---------- 音频仓库（IndexedDB） ----------
+   50MB 的音频塞不进 localStorage（上限约 5MB，且大字符串会卡主线程）。
+   改成：音频以 Blob 存 IndexedDB，localStorage 只留 { id, name, size, type }。
+   播放时按需取出，生成 object URL。 */
+const TONE_DB_NAME = "naobiao-tones";
+const TONE_DB_STORE = "files";
+let toneDB = null;
+const toneURLs = {};       // id -> objectURL（已生成的缓存）
+
+function openToneDB(){
+  if(toneDB) return Promise.resolve(toneDB);
+  return new Promise(function(resolve, reject){
+    let req;
+    try{ req = indexedDB.open(TONE_DB_NAME, 1); }catch(e){ reject(e); return; }
+    req.onupgradeneeded = function(){
+      const db = req.result;
+      if(!db.objectStoreNames.contains(TONE_DB_STORE)) db.createObjectStore(TONE_DB_STORE);
+    };
+    req.onsuccess = function(){ toneDB = req.result; resolve(toneDB); };
+    req.onerror = function(){ reject(req.error); };
+  });
+}
+
+function putToneBlob(id, blob){
+  return openToneDB().then(function(db){
+    return new Promise(function(resolve, reject){
+      const tx = db.transaction(TONE_DB_STORE, "readwrite");
+      tx.objectStore(TONE_DB_STORE).put(blob, id);
+      tx.oncomplete = function(){ resolve(true); };
+      tx.onerror = function(){ reject(tx.error); };
+    });
+  });
+}
+
+function getToneBlob(id){
+  return openToneDB().then(function(db){
+    return new Promise(function(resolve, reject){
+      const tx = db.transaction(TONE_DB_STORE, "readonly");
+      const rq = tx.objectStore(TONE_DB_STORE).get(id);
+      rq.onsuccess = function(){ resolve(rq.result || null); };
+      rq.onerror = function(){ reject(rq.error); };
+    });
+  });
+}
+
+function deleteToneBlob(id){
+  return openToneDB().then(function(db){
+    return new Promise(function(resolve){
+      const tx = db.transaction(TONE_DB_STORE, "readwrite");
+      tx.objectStore(TONE_DB_STORE).delete(id);
+      tx.oncomplete = function(){ resolve(true); };
+      tx.onerror = function(){ resolve(false); };
+    });
+  }).catch(function(){ return false; });
+}
+
+/* 把某个铃声的音频取出来变成本地 URL，供 <audio> 播放 */
+function resolveToneURL(id){
+  if(toneURLs[id]) return Promise.resolve(toneURLs[id]);
+  return getToneBlob(id).then(function(blob){
+    if(!blob) return null;
+    const url = URL.createObjectURL(blob);
+    toneURLs[id] = url;
+    return url;
+  });
+}
+
+function releaseToneURL(id){
+  if(toneURLs[id]){ try{ URL.revokeObjectURL(toneURLs[id]); }catch(e){} delete toneURLs[id]; }
+}
+
+/* 探测这份音频当前浏览器能不能解码。返回 Promise<boolean>。 */
+function probeDecodable(id){
+  return getToneBlob(id).then(function(blob){
+    if(!blob) return false;
+    return new Promise(function(resolve){
+      const url = URL.createObjectURL(blob);
+      const a = new Audio();
+      let settled = false;
+      const done = function(ok){
+        if(settled) return;
+        settled = true;
+        try{ URL.revokeObjectURL(url); }catch(e){}
+        resolve(ok);
+      };
+      a.preload = "metadata";
+      a.onloadedmetadata = function(){ done(true); };
+      a.onerror = function(){ done(false); };
+      setTimeout(function(){ done(false); }, 5000);
+      try{ a.src = url; }catch(e){ done(false); }
+    });
+  }).catch(function(){ return false; });
+}
+
+function saveTones(){
+  try{
+    const index = {};
+    Object.keys(customTones).forEach(function(k){
+      const t = customTones[k];
+      index[k] = { name: t.name, size: t.size || 0, type: t.type || "", at: t.at || 0 };
+    });
+    localStorage.setItem(LS_TONES, JSON.stringify(index));
+  }catch(e){}
+}
 
 function loadAll(){
   try{
@@ -1617,8 +1741,40 @@ function loadAll(){
   }catch(e){}
   try{
     const t = JSON.parse(localStorage.getItem(LS_TONES) || "{}");
-    if(t && typeof t === "object") customTones = t;
+    if(t && typeof t === "object"){
+      customTones = {};
+      Object.keys(t).forEach(function(k){
+        const v = t[k] || {};
+        /* 旧版把整个 dataUrl 塞在 localStorage 里，这里顺手迁移到 IndexedDB */
+        if(typeof v.dataUrl === "string" && v.dataUrl.indexOf("data:") === 0){
+          customTones[k] = { name: v.name || "自定义铃声", size: v.dataUrl.length, type: "", legacy: v.dataUrl };
+        } else {
+          customTones[k] = { name: v.name || "自定义铃声", size: v.size || 0, type: v.type || "", at: v.at || 0 };
+        }
+      });
+    }
   }catch(e){}
+}
+
+/* 旧版遗留的 dataUrl 迁移到 IndexedDB（只跑一次，迁移完把 localStorage 里的大字符串扔掉） */
+function migrateLegacyTones(){
+  const keys = Object.keys(customTones).filter(function(k){ return !!customTones[k].legacy; });
+  if(!keys.length) return Promise.resolve(0);
+  let done = 0;
+  return keys.reduce(function(chain, k){
+    return chain.then(function(){
+      const t = customTones[k];
+      return fetch(t.legacy).then(function(r){ return r.blob(); }).then(function(blob){
+        return putToneBlob(k, blob).then(function(){
+          customTones[k] = { name: t.name, size: blob.size, type: blob.type || "", at: Date.now() };
+          done++;
+        });
+      }).catch(function(){ /* 单条失败跳过 */ });
+    });
+  }, Promise.resolve()).then(function(){
+    if(done) saveTones();
+    return done;
+  });
 }
 
 function normalizeAlarm(a){
@@ -2067,7 +2223,8 @@ function buildToneOptions(selected){
     customKeys.forEach(function(k){
       const o = document.createElement("option");
       o.value = "custom:" + k;
-      o.textContent = "[自定义] " + customTones[k].name;
+      const sz = customTones[k].size ? " · " + humanSize(customTones[k].size) : "";
+      o.textContent = "[自定义] " + customTones[k].name + sz;
       og.appendChild(o);
     });
     toneSelect.appendChild(og);
@@ -2108,6 +2265,7 @@ function openEditor(id){
     pickedDays = a.days.slice();
     durationSelect.value = String(a.duration);
     buildToneOptions(a.toneId);
+    syncDeleteToneButton();
   } else {
     const now = wallDate();
     const plus5 = new Date(now.getTime() + 5*60000);
@@ -2118,6 +2276,7 @@ function openEditor(id){
     pickedDays = [1,2,3,4,5];
     durationSelect.value = "0";
     buildToneOptions("digital_beep");
+    syncDeleteToneButton();
   }
   setRepeatUI(); syncDayButtons();
   dlg.classList.remove("hidden");
@@ -2136,48 +2295,154 @@ function stopPreview(){
   stopPreviewBtn.classList.add("hidden");
 }
 
+function playToneById(toneId, volume, duration, onEnd){
+  if(toneId.indexOf("custom:") !== 0){
+    Engine.playPreset(toneId, volume, duration, onEnd);
+    return;
+  }
+  const id = toneId.slice(7);
+  const t = customTones[id];
+  if(!t){ Engine.playPreset("digital_beep", volume, duration, onEnd); return; }
+  if(t.dataUrl){ Engine.playCustom(t.dataUrl, volume, duration, onEnd); return; }
+  resolveToneURL(id).then(function(url){
+    if(!url){ Engine.playPreset("digital_beep", volume, duration, onEnd); return; }
+    Engine.playCustom(url, volume, duration, onEnd);
+  }).catch(function(){ Engine.playPreset("digital_beep", volume, duration, onEnd); });
+}
+
 previewBtn.addEventListener("click", function(){
   const v = toneSelect.value;
   if(v === "__add__") return;
   Engine.ensure();
-  if(v.indexOf("custom:") === 0){
-    const t = customTones[v.slice(7)];
-    if(!t){ toast("这个自定义铃声已丢失，请重新上传"); return; }
-    Engine.playCustom(t.dataUrl, 0.85, 0, null);
-  } else {
-    Engine.playPreset(v, 0.85, 0, null);
-  }
+  playToneById(v, 0.85, 0, null);
   previewing = true;
   previewBtn.classList.add("hidden");
   stopPreviewBtn.classList.remove("hidden");
 });
 stopPreviewBtn.addEventListener("click", stopPreview);
 
+const deleteToneBtn = document.getElementById("deleteToneButton");
+
+/* 只有选中自定义铃声时才显示删除按钮 */
+function syncDeleteToneButton(){
+  const v = toneSelect.value || "";
+  const isCustom = v.indexOf("custom:") === 0;
+  deleteToneBtn.classList.toggle("hidden", !isCustom);
+}
+
 toneSelect.addEventListener("change", function(){
   if(toneSelect.value === "__add__"){
     toneSelect.value = toneSelect.dataset.prev || "digital_beep";
     customInput.value = "";
+    syncDeleteToneButton();
     customInput.click();
     return;
   }
   toneSelect.dataset.prev = toneSelect.value;
+  syncDeleteToneButton();
 });
+
+deleteToneBtn.addEventListener("click", function(){
+  const v = toneSelect.value || "";
+  if(v.indexOf("custom:") !== 0) return;
+  const id = v.slice(7);
+  const t = customTones[id];
+  if(!t){ toast("这个铃声已不存在"); return; }
+  if(!confirm("删除铃声「" + t.name + "」？\n用到它的闹钟会改回默认提示音。")) return;
+
+  /* 用到这个铃声的闹钟全部改回默认，避免留下无效引用 */
+  let changed = 0;
+  alarms.forEach(function(a){
+    if(a.toneId === v){ a.toneId = "digital_beep"; changed++; }
+  });
+  if(changed){ saveAlarms(); queueRenderList(); }
+
+  stopPreview();
+  releaseToneURL(id);
+  deleteToneBlob(id);
+  delete customTones[id];
+  saveTones();
+  buildToneOptions("digital_beep");
+  toneSelect.dataset.prev = "digital_beep";
+  syncDeleteToneButton();
+  toast("已删除铃声" + (changed ? "，并把 " + changed + " 个闹钟改回默认" : ""));
+});
+
+/* 判断一个文件是不是音频：优先看 MIME，MIME 为空时看扩展名（
+   有些系统对 flac/ape 之类的 MIME 是空字符串） */
+const AUDIO_EXT = /^(mp3|wav|wave|flac|aac|m4a|m4b|ogg|oga|opus|weba|webm|wma|aiff|aif|aifc|ape|alac|amr|mid|midi|caf|au|mp2|mpga|3gp|3gpp)$/i;
+
+function isAudioFile(f){
+  const mime = (f.type || "").toLowerCase();
+  if(mime.indexOf("audio/") === 0) return true;
+  if(mime === "video/webm" || mime === "video/ogg") return true;   // 有些 .ogg/.webm 会被识别成 video
+  const m = /\.([A-Za-z0-9]+)$/.exec(f.name || "");
+  return !!(m && AUDIO_EXT.test(m[1]));
+}
+
+function humanSize(bytes){
+  if(bytes < 1024) return bytes + " B";
+  if(bytes < 1024*1024) return (bytes/1024).toFixed(0) + " KB";
+  return (bytes/1024/1024).toFixed(1) + " MB";
+}
 
 customInput.addEventListener("change", function(){
   const f = customInput.files && customInput.files[0];
   if(!f) return;
-  if(f.size > MAX_CUSTOM_BYTES){ toast("自定义铃声请控制在 1.5MB 以内"); customInput.value = ""; return; }
-  const reader = new FileReader();
-  reader.onload = function(){
-    const key = "t" + Date.now().toString(36);
-    customTones[key] = { name: f.name.replace(/\.[^.]+$/, "").slice(0, 20), dataUrl: reader.result };
+
+  if(!isAudioFile(f)){
+    toast("这个文件不是音频格式，请选择 MP3 / WAV / FLAC / AAC / M4A / OGG 等音频文件");
+    customInput.value = "";
+    return;
+  }
+  if(f.size > MAX_CUSTOM_BYTES){
+    toast("音频文件不能超过 100MB，当前 " + humanSize(f.size));
+    customInput.value = "";
+    return;
+  }
+  if(f.size === 0){
+    toast("这个文件是空的，请换一个");
+    customInput.value = "";
+    return;
+  }
+
+  const key = "t" + Date.now().toString(36);
+  const name = (f.name || "自定义铃声").replace(/\.[^.]+$/, "").slice(0, 24);
+  const prev = toneSelect.dataset.prev || "digital_beep";
+  toast("正在读取 " + name + "（" + humanSize(f.size) + "）…");
+
+  putToneBlob(key, f).then(function(){
+    customTones[key] = { name: name, size: f.size, type: f.type || "", at: Date.now() };
     saveTones();
     buildToneOptions("custom:" + key);
     toneSelect.dataset.prev = "custom:" + key;
-    toast("已添加自定义铃声：" + customTones[key].name);
-  };
-  reader.onerror = function(){ toast("自定义铃声读取失败，请换一个文件重试"); };
-  reader.readAsDataURL(f);
+    syncDeleteToneButton();
+    toast("已添加铃声：" + name + " · " + humanSize(f.size));
+    /* 顺手验证浏览器能不能解码。解不了的（WMA / APE / AIFF / AMR）
+       不会静默失败，响铃时会回落默认提示音，这里先提示一次。 */
+    probeDecodable(key).then(function(ok){
+      if(!ok) toast("已添加，但浏览器无法解码这个格式（如 WMA / APE），响铃时会用默认提示音。建议转成 MP3 或 FLAC");
+    });
+  }).catch(function(err){
+    /* IndexedDB 失败（隐私模式/配额不足）时退回 dataUrl，但 50MB 会撑爆 localStorage，
+       所以只在文件不大时兜底 */
+    if(f.size <= 4 * 1024 * 1024){
+      const reader = new FileReader();
+      reader.onload = function(){
+        customTones[key] = { name: name, size: f.size, type: f.type || "", at: Date.now(), dataUrl: reader.result };
+        saveTones();
+        buildToneOptions("custom:" + key);
+        toneSelect.dataset.prev = "custom:" + key;
+        syncDeleteToneButton();
+        toast("已添加铃声：" + name + "（兼容模式）");
+      };
+      reader.onerror = function(){ toast("铃声读取失败，请换一个文件"); toneSelect.value = prev; };
+      reader.readAsDataURL(f);
+    } else {
+      toast("保存失败：浏览器本地存储不可用或空间不足（" + (err && err.name ? err.name : "未知错误") + "）");
+      toneSelect.value = prev;
+    }
+  });
 });
 
 repeatSelect.addEventListener("change", setRepeatUI);
@@ -2282,13 +2547,7 @@ function startRing(alarm, why){
   const vol = 0.9;
   const dur = alarm.duration || 0;
   const onEnd = function(){ /* 响铃时长结束，保留界面等待处理 */ };
-  if(alarm.toneId.indexOf("custom:") === 0){
-    const t = customTones[alarm.toneId.slice(7)];
-    if(t) Engine.playCustom(t.dataUrl, vol, dur, onEnd);
-    else Engine.playPreset("digital_beep", vol, dur, onEnd);
-  } else {
-    Engine.playPreset(alarm.toneId, vol, dur, onEnd);
-  }
+  playToneById(alarm.toneId, vol, dur, onEnd);
   document.title = "⏰ " + alarm.time.slice(0,5) + " " + name;
 }
 
@@ -2828,6 +3087,7 @@ document.getElementById("nightModeButton").addEventListener("click", function(){
    ========================================================= */
 function boot(){
   loadAll();
+  migrateLegacyTones();   /* 旧版把音频塞在 localStorage，这里搬到 IndexedDB 并清掉 */
   ClockFace.init();
   ClockFace.apply(config.clockStyle, true);
   document.body.setAttribute("data-cs", config.clockStyle);

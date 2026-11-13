@@ -89,7 +89,24 @@ $env:CSC_IDENTITY_AUTO_DISCOVERY="false"   # PowerShell
 
 Windows 上 Electron 打包后 `app.asar` 会被进程锁定。清理中间产物时如果遇到 `Error during a trash operation`，重启进程或重启系统后再删，或直接在 `.gitignore` 里忽略。
 
-### 8. electron-builder winCodeSign 解压失败
+### 8. 自定义音频不能再存 localStorage（v1.1）
+
+原来 1.5MB 以下把音频转成 base64 塞 localStorage。上限提到 100MB 后这条路彻底走不通：
+
+- localStorage 配额约 5MB，50MB 的 base64 字符串（约 67MB）直接写失败
+- 即使写得进，主线程要一次性处理几十 MB 字符串，界面会冻住
+
+改成 **Blob 存 IndexedDB**，localStorage 只留 `{name, size, type}` 索引。播放时 `URL.createObjectURL` 生成临时地址。
+
+配套三个东西：
+
+- `migrateLegacyTones()` —— 启动时把旧版 dataUrl 搬进 IndexedDB，然后清掉 localStorage 里的大字符串
+- `probeDecodable()` —— 上传后立刻试着解码，解不了当场提示（Chromium 不支持 WMA / APE / AIFF / AMR）
+- `playCustom` 的 error 兜底 —— 万一解码失败回落 `digital_beep`，不能到点没声音
+
+实测：95.9MB WAV 一秒入库，IndexedDB 存满 95.9MB，试听 `playing` 事件正常。
+
+### 9. electron-builder winCodeSign 解压失败
 
 报 `Cannot create symbolic link ... 客户端没有所需的特权`。
 
