@@ -1,6 +1,6 @@
 # Desktop Alarm Clock
 
-[![release](https://img.shields.io/github/v/release/Peijy1226/desktop-alarm-clock)](https://github.com/Peijy1226/desktop-alarm-clock/releases)
+[![release](https://img.shields.io/github/v/release/Peijy1226/desktop-alarm-clock?cacheSeconds=3600)](https://github.com/Peijy1226/desktop-alarm-clock/releases)
 [![license](https://img.shields.io/github/license/Peijy1226/desktop-alarm-clock)](LICENSE)
 
 [中文](README.md) · **English**
