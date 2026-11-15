@@ -286,6 +286,7 @@ input[type=text]:focus,input[type=time]:focus,input[type=date]:focus,select:focu
 input[type=time]{font-family:var(--font-num);font-size:20px;font-weight:700;letter-spacing:.04em;padding:9px 13px}
 select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237a8a6c' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
   background-repeat:no-repeat;background-position:right 13px center;background-size:11px;padding-right:34px;cursor:pointer}
+select:disabled{opacity:.4;cursor:not-allowed}
 .time-quick-row{display:flex;flex-direction:column;gap:9px}
 .time-field{display:flex;flex-direction:column;gap:7px}
 .quick-adjust{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
@@ -1271,7 +1272,7 @@ const ClockFace = (function(){
 const Engine = (function(){
   let ctx = null, master = null;
   let loopTimer = null, cycleGain = null, stopAt = 0, stopped = true;
-  let customEl = null;
+  let customEl = null, keepAliveTimer = null;
 
   function ensure(){
     if(!ctx){
@@ -1477,6 +1478,7 @@ const Engine = (function(){
   function hardStop(){
     stopped = true;
     if(loopTimer){ clearTimeout(loopTimer); loopTimer = null; }
+    if(keepAliveTimer){ clearInterval(keepAliveTimer); keepAliveTimer = null; }
     if(cycleGain){
       try{
         cycleGain.gain.cancelScheduledValues(ctx.currentTime);
@@ -1525,6 +1527,8 @@ const Engine = (function(){
   }
 
   /* 播放自定义音频。src 可以是 object URL 或 data URL。
+     自定义铃声一律循环到底，只有点「我知道了」或「贪睡」才会停，
+     不再理会"响铃时长"——一段三十几秒的曲子，必须一直响到人起来。
      浏览器解不了的格式（如 FLAC 在部分老版本、APE、WMA）会触发 error，
      此时回落到内置提示音，避免"闹钟到点却没声音"。 */
   function playCustom(src, volume, duration, onEnd){
@@ -1537,26 +1541,38 @@ const Engine = (function(){
     customEl = el;
     stopped = false;
 
+    /* 元素已经被掀到末尾（loop 没接住）就拉回开头重放 */
+    function revive(){
+      if(customEl !== el || stopped) return;
+      try{
+        if(el.ended || (el.duration && el.currentTime >= el.duration - 0.06)) el.currentTime = 0;
+      }catch(e){}
+      const p = el.play();
+      if(p && p.catch) p.catch(function(){});
+    }
+
+    /* 循环主要靠 loop 属性，这里再挂一层 ended 兜底 */
+    el.addEventListener("ended", revive);
+
+    /* 系统休眠唤醒、音频焦点被别的程序抢走、解码抖动，
+       都可能把元素弄成暂停态。每秒探一次，掉了就重新拉起来。 */
+    keepAliveTimer = setInterval(function(){
+      if(customEl !== el){ clearInterval(keepAliveTimer); keepAliveTimer = null; return; }
+      if(!stopped && el.paused) revive();
+    }, 1000);
+
     el.addEventListener("error", function(){
       if(customEl !== el) return;
       try{ el.pause(); }catch(e){}
       customEl = null;
+      if(keepAliveTimer){ clearInterval(keepAliveTimer); keepAliveTimer = null; }
       /* 回落到内置提示音，保证一定会响 */
-      playPreset("digital_beep", volume, duration, onEnd);
+      playPreset("digital_beep", volume, 0, onEnd);
     });
 
     el.src = src;
-    el.play().catch(function(){ /* 自动播放被拦，等用户交互后再试 */ });
-
-    if(duration > 0){
-      setTimeout(function(){
-        if(customEl === el){
-          try{ el.pause(); }catch(e){}
-          customEl = null;
-          if(typeof onEnd === "function") onEnd();
-        }
-      }, duration*1000);
-    }
+    el.play().catch(function(){ /* 自动播放被拦，等窗口获得焦点后由保活逻辑拉起 */ });
+    /* duration 参数保留只为兼容旧调用点，自定义铃声不看它 */
   }
 
   /* 整点报时：广播式 5 声 */
@@ -2201,6 +2217,20 @@ const dialogTitle = document.getElementById("alarmDialogTitle");
 let pickedDays = [];
 let previewing = false;
 
+const toneHint = document.getElementById("toneHint");
+const TONE_HINT_DEFAULT = toneHint ? toneHint.textContent : "";
+
+/* 自定义铃声是整段循环，响铃时长对它不适用，选到自定义时把时长置灰 */
+function syncDurationField(){
+  const isCustom = (toneSelect.value || "").indexOf("custom:") === 0;
+  durationSelect.disabled = isCustom;
+  if(toneHint){
+    toneHint.textContent = isCustom
+      ? "自定义铃声会一直循环播放，直到点「我知道了」或「贪睡」"
+      : TONE_HINT_DEFAULT;
+  }
+}
+
 function buildToneOptions(selected){
   toneSelect.innerHTML = "";
   const groups = {};
@@ -2235,6 +2265,7 @@ function buildToneOptions(selected){
 
   toneSelect.value = selected || "digital_beep";
   if(!toneSelect.value) toneSelect.value = "digital_beep";
+  syncDurationField();
 }
 
 function setRepeatUI(){
@@ -2263,8 +2294,9 @@ function openEditor(id){
     repeatSelect.value = a.repeat;
     dateInput.value = a.date || "";
     pickedDays = a.days.slice();
-    durationSelect.value = String(a.duration);
     buildToneOptions(a.toneId);
+    /* 自定义铃声一律显示"一直"，与保存后的实际行为对齐 */
+    durationSelect.value = a.toneId.indexOf("custom:") === 0 ? "0" : String(a.duration);
     syncDeleteToneButton();
   } else {
     const now = wallDate();
@@ -2340,6 +2372,7 @@ toneSelect.addEventListener("change", function(){
   }
   toneSelect.dataset.prev = toneSelect.value;
   syncDeleteToneButton();
+  syncDurationField();
 });
 
 deleteToneBtn.addEventListener("click", function(){
@@ -2483,6 +2516,9 @@ form.addEventListener("submit", function(e){
   }
 
   const toneVal = toneSelect.value === "__add__" ? "digital_beep" : toneSelect.value;
+  /* 自定义铃声整段循环，时长一律按"一直"存，免得列表写着 30 秒却停不下来 */
+  const isToneCustom = toneVal.indexOf("custom:") === 0;
+  const finalDuration = isToneCustom ? 0 : +durationSelect.value;
 
   if(editingId){
     const a = alarms.find(function(x){ return x.id === editingId; });
@@ -2493,7 +2529,7 @@ form.addEventListener("submit", function(e){
     a.date = mode === "specific_date" ? dateInput.value : "";
     a.days = mode === "custom" ? pickedDays.slice() : [];
     a.toneId = toneVal;
-    a.duration = +durationSelect.value;
+    a.duration = finalDuration;
     a.skipAt = null;
     a.lastFireKey = null;
     a.snoozeUntil = null;
@@ -2509,7 +2545,7 @@ form.addEventListener("submit", function(e){
       date: mode === "specific_date" ? dateInput.value : "",
       days: mode === "custom" ? pickedDays.slice() : [],
       toneId: toneVal,
-      duration: +durationSelect.value,
+      duration: finalDuration,
       enabled: true
     });
     alarms.push(a);

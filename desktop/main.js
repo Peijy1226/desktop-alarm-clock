@@ -124,7 +124,9 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      backgroundThrottling: true,    // 后台自动降帧省电；闹钟按 1 秒 tick 判定，不受影响
+      /* 窗口收到托盘后渲染进程会被节流到一分钟一次，闹钟判定和响铃的
+         排拍都会跟着拖，所以这里必须关掉，不能省这点电 */
+      backgroundThrottling: false,
       offscreen: false,
       webgl: false,                  // 不用 3D，关掉省内存
       enableWebSQL: false,
